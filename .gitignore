@@ -3,5 +3,6 @@
 
 crawld
 crawld.conf
+!testdata/crawld.conf
 log
 pid
