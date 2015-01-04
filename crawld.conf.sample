@@ -1,0 +1,26 @@
+{
+    "database": {
+        "hostname": "localhost",
+        "port": 5432,
+        "username": "devmine",
+        "password": "devmine",
+        "dbname": "devmine",
+        "ssl_mode": "disable"
+    },
+    "clone_dir": "/var/crawld",
+    "crawling_time_interval": "12h",
+    "fetch_time_interval": "10m",
+    "crawlers": [
+        {
+            "type": "github",
+            "languages": [
+                "go",
+                "ruby"
+            ],
+            "limit": 0,
+            "fork": false,
+            "oauth_access_token": "token here",
+            "use_search_api": false
+        }
+    ]
+}

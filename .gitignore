@@ -1,0 +1,7 @@
+*~
+*.swp
+
+crawld
+crawld.conf
+log
+pid
