@@ -357,7 +357,7 @@ func fetchRepository(gc *GitHubCrawler, args ...interface{}) (interface{}, error
 // If repo is not in the table, then 0 is returned. If an error occurs, -1 is returned.
 func getRepoID(gc *GitHubCrawler, repo *github.Repository) int {
 	if repo == nil {
-		glog.Warning(tag, "getRepoID: 'repo' arg given is nil")
+		glog.Error(tag, "getRepoID: 'repo' arg given is nil")
 		return -1
 	}
 
@@ -377,7 +377,7 @@ func getRepoID(gc *GitHubCrawler, repo *github.Repository) int {
 // If repo is not in the table, then 0 is returned. If an error occurs, -1 is returned.
 func getGhRepoID(gc *GitHubCrawler, repo *github.Repository) int {
 	if repo == nil {
-		glog.Warning(tag, "getGhRepoID: 'repo' arg given is nil")
+		glog.Error(tag, "getGhRepoID: 'repo' arg given is nil")
 		return -1
 	}
 
@@ -397,7 +397,7 @@ func getGhRepoID(gc *GitHubCrawler, repo *github.Repository) int {
 // If org is not in the table, then 0 is returned. If an error occurs, -1 is returned.
 func getGhOrgID(gc *GitHubCrawler, org *github.Organization) int {
 	if org == nil {
-		glog.Warning(tag, "getGhOrgID: 'org' arg given is nil")
+		glog.Error(tag, "getGhOrgID: 'org' arg given is nil")
 		return -1
 	}
 
@@ -417,7 +417,7 @@ func getGhOrgID(gc *GitHubCrawler, org *github.Organization) int {
 // If user not in the table, then 0 is returned. If an error occurs, -1 is returned.
 func getGhUserID(gc *GitHubCrawler, user *github.User) int {
 	if user == nil {
-		glog.Warning(tag, "getGhUserID: 'user' arg given is nil")
+		glog.Error(tag, "getGhUserID: 'user' arg given is nil")
 		return -1
 	}
 
@@ -437,7 +437,7 @@ func getGhUserID(gc *GitHubCrawler, user *github.User) int {
 // If user not in the table, then 0 is returned. If an error occurs, -1 is returned.
 func getUserID(gc *GitHubCrawler, user *github.User) int {
 	if user == nil {
-		glog.Warning(tag, "getUserID: 'user' arg given is nil")
+		glog.Error(tag, "getUserID: 'user' arg given is nil")
 		return -1
 	}
 
@@ -459,7 +459,7 @@ func getUserID(gc *GitHubCrawler, user *github.User) int {
 // organization, or simply the repo owner if this is a user.
 func insertOrUpdateRepo(gc *GitHubCrawler, repo *github.Repository) bool {
 	if repo == nil {
-		glog.Warning(tag, "insertOrUpdateRepo: 'repo' arg given is nil")
+		glog.Error(tag, "insertOrUpdateRepo: 'repo' arg given is nil")
 		return false
 	}
 	glog.Infof("%s insert or update repository: %s", tag, *repo.Name)
@@ -505,7 +505,7 @@ func insertOrUpdateRepo(gc *GitHubCrawler, repo *github.Repository) bool {
 // database.
 func insertOrUpdateGhRepo(gc *GitHubCrawler, repoID int64, repo *github.Repository) bool {
 	if repo == nil {
-		glog.Warning(tag, "insertOrUpdateGhRepo: 'repo' arg given is nil")
+		glog.Error(tag, "insertOrUpdateGhRepo: 'repo' arg given is nil")
 		return false
 	}
 	glog.Infof("%s insert or update github repository: %s", tag, *repo.Name)
@@ -583,7 +583,7 @@ func insertOrUpdateGhRepo(gc *GitHubCrawler, repoID int64, repo *github.Reposito
 // the database.
 func insertOrUpdateGhOrg(gc *GitHubCrawler, orgName *string, repoID int64) bool {
 	if orgName == nil {
-		glog.Warning(tag, "insertOrUpdateGhOrg: 'orgName' arg given is nil")
+		glog.Error(tag, "insertOrUpdateGhOrg: 'orgName' arg given is nil")
 		return false
 	}
 	glog.Infof("%s insert or update github organization: %s", tag, *orgName)
@@ -663,13 +663,13 @@ func insertOrUpdateGhOrg(gc *GitHubCrawler, orgName *string, repoID int64) bool 
 // insertOrUpdateUser inserts, or updates, a github user into the database.
 func insertOrUpdateUser(gc *GitHubCrawler, username *string, repoID int64, orgID int64) bool {
 	if username == nil {
-		glog.Warning(tag, "insertOrUpdateGhOrg: 'username' arg given is nil")
+		glog.Error(tag, "insertOrUpdateGhOrg: 'username' arg given is nil")
 		return false
 	}
 	glog.Infof("%s insert or update user: %s", tag, *username)
 
 	if repoID <= 0 {
-		glog.Warning(tag, "insertOrUpdateUser:",
+		glog.Error(tag, "insertOrUpdateUser:",
 			"trying to insert a user without linked GitHub repository")
 		return false
 	}
@@ -716,13 +716,13 @@ func insertOrUpdateUser(gc *GitHubCrawler, username *string, repoID int64, orgID
 // insertOrUpdateGhUser inserts, or updates, a github user into the database.
 func insertOrUpdateGhUser(gc *GitHubCrawler, userID int64, user *github.User, orgID int64) bool {
 	if user == nil {
-		glog.Warning(tag, "insertOrUpdateGhOrg: 'user' arg given is nil")
+		glog.Error(tag, "insertOrUpdateGhOrg: 'user' arg given is nil")
 		return false
 	}
 	glog.Infof("%s insert or update github user: %s", tag, *user.Login)
 
 	if userID <= 0 {
-		glog.Warning(tag, "insertOrUpdateGhUser:",
+		glog.Error(tag, "insertOrUpdateGhUser:",
 			"trying to insert a github user but no user ID given")
 		return false
 	}
@@ -1077,7 +1077,7 @@ func isLanguageWanted(suppLangs []string, prjLangs interface{}) (bool, error) {
 // genApiCallFuncError creates an error base on the http response.
 func genApiCallFuncError(resp *github.Response, err error) error {
 	if resp == nil {
-		glog.Warning(tag, "genApiCallFuncError: 'resp' arg given is nil")
+		glog.Error(tag, "genApiCallFuncError: 'resp' arg given is nil")
 		if err != nil {
 			return err
 		} else {
