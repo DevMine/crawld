@@ -1,5 +1,10 @@
 # Crawld: a data crawler and repository fetcher
 
+[![Build Status](https://travis-ci.org/DevMine/crawld.png?branch=master)](https://travis-ci.org/DevMine/crawld)
+[![GoDoc](http://godoc.org/github.com/DevMine/crawld?status.svg)](http://godoc.org/github.com/DevMine/crawld)
+[![GoWalker](http://img.shields.io/badge/doc-gowalker-blue.svg?style=flat)](https://gowalker.org/github.com/DevMine/crawld)
+[![Gobuild Download](http://gobuild.io/badge/github.com/DevMine/crawld/downloads.svg)](http://gobuild.io/github.com/DevMine/crawld)
+
 `crawld` is part of the [DevMine project](http://devmine.github.io/).
 
 It is responsible for collecting source code projects metadata and code
