@@ -1080,9 +1080,8 @@ func genApiCallFuncError(resp *github.Response, err error) error {
 		glog.Error(tag, "genApiCallFuncError: 'resp' arg given is nil")
 		if err != nil {
 			return err
-		} else {
-			return errNilArg
 		}
+		return errNilArg
 	}
 
 	if err == nil || resp.StatusCode != 403 {
