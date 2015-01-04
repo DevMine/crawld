@@ -37,6 +37,7 @@ var (
 	errInvalidParamType = errors.New("invalid parameter type")
 )
 
+// GitHubCrawler implements the Crawler interface.
 type GitHubCrawler struct {
 	config.CrawlerConfig
 
