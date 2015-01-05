@@ -57,7 +57,7 @@ type CrawlerConfig struct {
 	// Note that the behavior is slightly different whether UseSearchAPI is set
 	// to true or not. When using the search API, this limit correspond to the
 	// number of repositories to crawl per language listed in "languages".
-	// Otherwhise, this is a global limit, regardless of the language.
+	// Otherwise, this is a global limit, regardless of the language.
 	Limit int64 `json:"limit"`
 
 	// SinceID corresponds to the repository ID (eg: GitHub repository ID in
@@ -74,7 +74,16 @@ type CrawlerConfig struct {
 	// requests are limited to 60 per hour where authenticated requests goes up
 	// to 5000 per hour.
 	OAuthAccessToken string `json:"oauth_access_token"`
-	UseSearchAPI     bool   `json:"use_search_api"`
+
+	// UseSearchAPI specifies whether to use the search API or not. The number
+	// of results returned by a search API is usually limited. For instance,
+	// the GitHub search API limits the results to 1000 repositories.
+	// In the case of the github crawler, this means that the maximum number of
+	// repositories that can be crawled is 1000 per language (the github crawler
+	// orders the results by repository popularity with regard to the number of
+	// stars). When a lot of data is wanted, this option shall therefore be set
+	// to false.
+	UseSearchAPI bool `json:"use_search_api"`
 }
 
 // DatabaseConfig is a configuration for PostgreSQL database connection
