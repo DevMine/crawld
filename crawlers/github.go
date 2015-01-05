@@ -1167,7 +1167,7 @@ func verifyRepo(repo *github.Repository) error {
 	if repo.ID == nil {
 		err = newInvalidStructError("verifyRepo: contains nil fields:").AddField("ID")
 	} else {
-		err = newInvalidStructError(fmt.Sprintf("verifyRepo: repo #%d contains nil fields: ", repo.ID))
+		err = newInvalidStructError(fmt.Sprintf("verifyRepo: repo #%d contains nil fields: ", *repo.ID))
 	}
 
 	if repo.Name == nil {
