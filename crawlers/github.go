@@ -139,7 +139,7 @@ ResultsLoop:
 		repos, resp, err := gc.client.Repositories.ListAll(opt)
 		if err != nil {
 			glog.Error(tag, "fetchRepositories:", err)
-			return nil, genApiCallFuncError(resp, err)
+			return nil, genAPICallFuncError(resp, err)
 		}
 
 		if len(repos) == 0 {
@@ -238,7 +238,7 @@ ResultsLoop:
 			"language:"+lang, opt)
 		if err != nil {
 			glog.Error(tag, "fetchTopRepositories:", err)
-			return nil, genApiCallFuncError(resp, err)
+			return nil, genAPICallFuncError(resp, err)
 		}
 
 		repos := results.Repositories
@@ -306,7 +306,7 @@ func fetchRepositoryLanguages(gc *GitHubCrawler, args ...interface{}) (interface
 	langs, resp, err := gc.client.Repositories.ListLanguages(owner, repo)
 	if err != nil {
 		glog.Error("fetchRepositoryLanguages: ", err)
-		return nil, genApiCallFuncError(resp, err)
+		return nil, genAPICallFuncError(resp, err)
 	}
 
 	return langs, nil
@@ -348,7 +348,7 @@ func fetchRepository(gc *GitHubCrawler, args ...interface{}) (interface{}, error
 	ghRepo, resp, err := gc.client.Repositories.Get(owner, repo)
 	if err != nil {
 		glog.Error("fetchRepository: ", err)
-		return nil, genApiCallFuncError(resp, err)
+		return nil, genAPICallFuncError(resp, err)
 	}
 
 	return ghRepo, nil
@@ -883,7 +883,7 @@ func fetchOrganization(gc *GitHubCrawler, args ...interface{}) (interface{}, err
 	org, resp, err := gc.client.Organizations.Get(orgName)
 	if err != nil {
 		glog.Error(tag, "fetchOrganization:", err)
-		return nil, genApiCallFuncError(resp, err)
+		return nil, genAPICallFuncError(resp, err)
 	}
 
 	return org, nil
@@ -911,7 +911,7 @@ func fetchUser(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
 	user, resp, err := gc.client.Users.Get(username)
 	if err != nil {
 		glog.Error(tag, "fetchUser:", err)
-		return nil, genApiCallFuncError(resp, err)
+		return nil, genAPICallFuncError(resp, err)
 	}
 
 	return user, nil
@@ -953,7 +953,7 @@ func fetchContributors(gc *GitHubCrawler, args ...interface{}) (interface{}, err
 	users, resp, err := gc.client.Repositories.ListContributors(owner, repoName, nil)
 	if err != nil {
 		glog.Error(tag, "fetchContributors:", err)
-		return nil, genApiCallFuncError(resp, err)
+		return nil, genAPICallFuncError(resp, err)
 	}
 
 	return users, nil
@@ -984,7 +984,7 @@ func fetchOrganizationMembers(gc *GitHubCrawler, args ...interface{}) (interface
 	users, resp, err := gc.client.Organizations.ListMembers(orgName, nil)
 	if err != nil {
 		glog.Error(tag, "fetchOrganizationMembers:", err)
-		return nil, genApiCallFuncError(resp, err)
+		return nil, genAPICallFuncError(resp, err)
 	}
 
 	return users, nil
@@ -1074,8 +1074,8 @@ func isLanguageWanted(suppLangs []string, prjLangs interface{}) (bool, error) {
 	return false, nil
 }
 
-// genApiCallFuncError creates an error base on the http response.
-func genApiCallFuncError(resp *github.Response, err error) error {
+// genAPICallFuncError creates an error base on the http response.
+func genAPICallFuncError(resp *github.Response, err error) error {
 	if resp == nil {
 		glog.Error(tag, "genApiCallFuncError: 'resp' arg given is nil")
 		if err != nil {
