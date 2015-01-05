@@ -149,12 +149,20 @@ ResultsLoop:
 		}
 
 		for _, repo := range repos {
+			if repo.ID == nil {
+				glog.Error("fetchRepositories: 'repo' has nil ID field")
+				continue
+			}
 			sinceID = *repo.ID
 
 			if n == 0 && hasLimit {
 				break ResultsLoop
 			}
 
+			if repo.Fork == nil {
+				glog.Error("fetchRepositories: 'repo' has nil Fork field")
+				continue
+			}
 			// skip? fork repos
 			if *repo.Fork && !keepFork {
 				continue
