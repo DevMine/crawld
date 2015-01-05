@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package repo defines a generic interface for Version Control Systems (VCS).
 package repo
 
 // Repo abstracts a version control system (VCS) such as git, mercurial or

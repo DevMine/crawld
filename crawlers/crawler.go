@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package crawlers provides crawlers for gathering source code repository
+// information.
 package crawlers
 
 // Crawler defines methods a crawler must implement.

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package git defines a Git repository type that implements the repo.Repo
+// interface.
 package git
 
 import (
