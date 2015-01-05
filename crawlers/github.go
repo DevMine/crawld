@@ -514,7 +514,11 @@ func insertOrUpdateGhRepo(gc *GitHubCrawler, repoID int64, repo *github.Reposito
 
 	var ghOrganizationID *int
 	if repo.Organization != nil {
-		ghOrganizationID = repo.Organization.ID
+		if repo.Organization.ID == nil {
+			glog.Warning("insertOrUpdateGhRepo: organization ID is nil")
+		} else {
+			ghOrganizationID = repo.Organization.ID
+		}
 	}
 
 	ghRepoFields := []string{
