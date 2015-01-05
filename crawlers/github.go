@@ -51,6 +51,7 @@ type GitHubCrawler struct {
 // ensure that GitHubCrawler implements the Crawler interface
 var _ Crawler = (*GitHubCrawler)(nil)
 
+// NewGitHubCrawler creates a new GitHub crawler.
 func NewGitHubCrawler(cfg config.CrawlerConfig, cloneDir string, db *sql.DB) (*GitHubCrawler, error) {
 	if db == nil {
 		return nil, errors.New("database session cannot be nil")
