@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -464,8 +465,7 @@ func insertOrUpdateRepo(gc *GitHubCrawler, repo *github.Repository) bool {
 	}
 	glog.Infof("%s insert or update repository: %s", tag, *repo.Name)
 
-	clonePath := strings.ToLower(*repo.Language) + "/" +
-		strings.ToLower(*repo.Owner.Login) + "/" + strings.ToLower(*repo.Name)
+	clonePath := strings.ToLower(filepath.Join(*repo.Language, *repo.Owner.Login, *repo.Name))
 	repoFields := []string{"name", "primary_language", "clone_url", "clone_path", "vcs"}
 
 	var query string
