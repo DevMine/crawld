@@ -563,9 +563,9 @@ func insertOrUpdateGhRepo(gc *GitHubCrawler, repoID int64, repo *github.Reposito
 		repo.SubscribersCount,
 		repo.WatchersCount,
 		repo.Size,
-		formatTimestamp(*repo.CreatedAt),
-		formatTimestamp(*repo.UpdatedAt),
-		formatTimestamp(*repo.PushedAt))
+		formatTimestamp(repo.CreatedAt),
+		formatTimestamp(repo.UpdatedAt),
+		formatTimestamp(repo.PushedAt))
 
 	if err != nil {
 		glog.Error(tag, "insertOrUpdateGhRepo:", err)
@@ -636,8 +636,8 @@ func insertOrUpdateGhOrg(gc *GitHubCrawler, orgName *string, repoID int64) bool 
 		org.Location,
 		org.Email,
 		org.Collaborators,
-		formatTimestamp(github.Timestamp{Time: *org.CreatedAt}),
-		formatTimestamp(github.Timestamp{Time: *org.UpdatedAt})).Scan(&orgID)
+		formatTimestamp(&github.Timestamp{Time: *org.CreatedAt}),
+		formatTimestamp(&github.Timestamp{Time: *org.UpdatedAt})).Scan(&orgID)
 
 	if err != nil {
 		glog.Error(tag, "insertOrUpdateGhOrg:", err)
@@ -773,8 +773,8 @@ func insertOrUpdateGhUser(gc *GitHubCrawler, userID int64, user *github.User, or
 		user.Followers,
 		user.Following,
 		user.Collaborators,
-		formatTimestamp(*user.CreatedAt),
-		formatTimestamp(*user.UpdatedAt)).Scan(&ghUserID)
+		formatTimestamp(user.CreatedAt),
+		formatTimestamp(user.UpdatedAt)).Scan(&ghUserID)
 
 	if err != nil {
 		glog.Error(tag, "insertOrUpdateGhUser:", err)
@@ -1037,8 +1037,14 @@ func genUpdateQuery(tableName string, id int, fields ...string) string {
 
 // formatTimestamp formats a github.Timestamp to a string suitable to use
 // as a timestamp with timezone PostgreSQL data type
-func formatTimestamp(timeStamp github.Timestamp) string {
-	return timeStamp.Format(time.RFC3339)
+func formatTimestamp(timeStamp *github.Timestamp) string {
+	timeFormat := time.RFC3339
+	if timeStamp == nil {
+		glog.Error("formatTimeStamp: 'timeStamp' arg given is nil")
+		t := time.Time{}
+		return t.Format(timeFormat)
+	}
+	return timeStamp.Format(timeFormat)
 }
 
 // isLanguageWanted checks if language(s) is in the list of wanted
