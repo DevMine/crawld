@@ -60,6 +60,11 @@ type CrawlerConfig struct {
 	// Otherwhise, this is a global limit, regardless of the language.
 	Limit int64 `json:"limit"`
 
+	// SinceID corresponds to the repository ID (eg: GitHub repository ID in
+	// the case of the github crawler) from which to start querying repositories.
+	// Note that this value is ignored when using the search API.
+	SinceID int `json:"since_id"`
+
 	// Fork indicate whether "fork" repositories need to be crawled or not.
 	Fork bool `json:"fork"`
 
@@ -149,6 +154,10 @@ func (cc CrawlerConfig) verify() error {
 
 	if len(cc.Languages) == 0 {
 		return errors.New("config: crawler must have at least one language")
+	}
+
+	if cc.SinceID < 0 {
+		return errors.New("config: crawler since id must be >= 0")
 	}
 
 	return nil

@@ -161,7 +161,7 @@ func fetchRepositories(gc *GitHubCrawler, args ...interface{}) (interface{}, err
 	// GitHub lists repositories 100 per page, regardless of the per_page option...
 	opt := &github.RepositoryListAllOptions{}
 
-	var sinceID int
+	sinceID := gc.SinceID
 ResultsLoop:
 	for {
 		opt.Since = sinceID

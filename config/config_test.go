@@ -21,6 +21,7 @@ const (
 	expectedCrawlerType             = "github"
 	expectedCrawlerLanguages        = "go,ruby"
 	expectedCrawlerLimit            = 0
+	expectedCrawlerSinceID          = 42
 	expectedCrawlerFork             = false
 	expectedCrawlerOAuthAccessToken = "token here"
 	expectedCrawlerUseSearchAPI     = false
@@ -66,6 +67,11 @@ func TestReadConfig(t *testing.T) {
 	if cfg.Crawlers[0].Limit != expectedCrawlerLimit {
 		t.Errorf("crawlers[0].limit: expected %d, found %d\n",
 			expectedCrawlerLimit, cfg.Crawlers[0].Limit)
+	}
+
+	if cfg.Crawlers[0].SinceID != expectedCrawlerSinceID {
+		t.Errorf("crawlers[0].since_id: expected %d, found %d\n",
+			expectedCrawlerSinceID, cfg.Crawlers[0].SinceID)
 	}
 
 	if cfg.Crawlers[0].Fork != expectedCrawlerFork {
