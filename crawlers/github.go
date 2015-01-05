@@ -39,6 +39,33 @@ var (
 	errInvalidParamType = errors.New("invalid parameter type")
 )
 
+type invalidStructError struct {
+	message string
+	fields  []string
+}
+
+func newInvalidStructError(msg string) *invalidStructError {
+	return &invalidStructError{message: msg, fields: []string{}}
+}
+
+func (e *invalidStructError) AddField(f string) *invalidStructError {
+	e.fields = append(e.fields, f)
+	return e
+}
+
+func (e invalidStructError) FieldsLen() int {
+	return len(e.fields)
+}
+
+func (e invalidStructError) Error() string {
+	buf := bytes.NewBufferString(e.message)
+	buf.WriteString("{ ")
+	buf.WriteString(strings.Join(e.fields, ", "))
+	buf.WriteString(" }\n")
+
+	return buf.String()
+}
+
 // GitHubCrawler implements the Crawler interface.
 type GitHubCrawler struct {
 	config.CrawlerConfig
@@ -187,6 +214,11 @@ ResultsLoop:
 			switch tmpRepo.(type) {
 			case *github.Repository:
 				fullRepo = tmpRepo.(*github.Repository)
+				err = verifyRepo(fullRepo)
+				if err != nil {
+					glog.Error(err)
+					continue
+				}
 			default:
 				glog.Error("fetchRepositories: invalid fetched repository")
 				continue
@@ -256,6 +288,12 @@ ResultsLoop:
 		for _, repo := range repos {
 			if n == 0 && hasLimit {
 				break ResultsLoop
+			}
+
+			err = verifyRepo(&repo)
+			if err != nil {
+				glog.Error(err)
+				continue
 			}
 
 			// skip? fork repos
@@ -1116,4 +1154,49 @@ func genAPICallFuncError(resp *github.Response, err error) error {
 	}
 
 	return err
+}
+
+// verifyRepo checks all essential fields of a Repository structure for nil
+// values. An error is returned if one of the essential field is nil.
+func verifyRepo(repo *github.Repository) error {
+	if repo == nil {
+		return newInvalidStructError("verifyRepo: repo is nil")
+	}
+
+	var err *invalidStructError
+	if repo.ID == nil {
+		err = newInvalidStructError("verifyRepo: contains nil fields:").AddField("ID")
+	} else {
+		err = newInvalidStructError(fmt.Sprintf("verifyRepo: repo #%d contains nil fields: ", repo.ID))
+	}
+
+	if repo.Name == nil {
+		err.AddField("Name")
+	}
+
+	if repo.Language == nil {
+		err.AddField("Language")
+	}
+
+	if repo.CloneURL == nil {
+		err.AddField("CloneURL")
+	}
+
+	if repo.Owner == nil {
+		err.AddField("Owner")
+	} else {
+		if repo.Owner.Login == nil {
+			err.AddField("Owner.Login")
+		}
+	}
+
+	if repo.Fork == nil {
+		err.AddField("Fork")
+	}
+
+	if err.FieldsLen() > 0 {
+		return err
+	}
+
+	return nil
 }
