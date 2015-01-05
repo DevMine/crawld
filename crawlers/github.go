@@ -69,6 +69,7 @@ func NewGitHubCrawler(cfg config.CrawlerConfig, cloneDir string, db *sql.DB) (*G
 	return &GitHubCrawler{cfg, cloneDir, client, db}, nil
 }
 
+// Crawl implements the Crawl() method of the Crawler interface.
 func (g *GitHubCrawler) Crawl() {
 	if g.UseSearchAPI {
 		for _, lang := range g.Languages {
