@@ -11,12 +11,14 @@ import (
 	"github.com/golang/glog"
 )
 
+// GitRepo implements the Repo interface.
 type GitRepo struct {
 	absPath string
 	gitBin  string
 	url     string
 }
 
+// New creates a new GitRepo.
 func New(absPath string, url string) (*GitRepo, error) {
 
 	path, err := exec.LookPath("git")
@@ -28,14 +30,17 @@ func New(absPath string, url string) (*GitRepo, error) {
 	return &GitRepo{absPath: absPath, gitBin: path, url: url}, nil
 }
 
+// AbsPath implements the AbsPath() method of the Repo interface.
 func (gr GitRepo) AbsPath() string {
 	return gr.absPath
 }
 
+// URL implements the URL() method of the Repo interface.
 func (gr GitRepo) URL() string {
 	return gr.url
 }
 
+// Clone implements the Clone() method of the Repo interface.
 func (gr GitRepo) Clone() error {
 
 	out, err := exec.Command(gr.gitBin, "clone", gr.url, gr.absPath).CombinedOutput()
@@ -48,6 +53,7 @@ func (gr GitRepo) Clone() error {
 	return nil
 }
 
+// Update implements the Update() method of the Repo interface.
 func (gr GitRepo) Update() error {
 
 	err := os.Chdir(gr.absPath)
