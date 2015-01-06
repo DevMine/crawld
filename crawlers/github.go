@@ -502,10 +502,9 @@ func getUserID(gc *GitHubCrawler, user *github.User) int {
 	return id
 }
 
-// insertOrUpdateRepo "does it all", ie: it searches for repositories, according
-// to the information in the configuration file, queries them and the
-// organization (including organization members) if the repo owner is an
-// organization, or simply the repo owner if this is a user.
+// insertOrUpdateRepo inserts or updates a repository. It also inserts or
+// updates related GitHub repository, users, GitHub users and GitHub
+// organization (if any).
 func insertOrUpdateRepo(gc *GitHubCrawler, repo *github.Repository) bool {
 	if repo == nil {
 		glog.Error(tag, "insertOrUpdateRepo: 'repo' arg given is nil")
