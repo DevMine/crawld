@@ -104,7 +104,7 @@ func (gr GitRepo) isAvailable() (bool, error) {
 			queryURL += ".git"
 		}
 
-		resp, err := http.Get(gr.url + "/git-upload-pack")
+		resp, err := http.Get(queryURL + "/git-upload-pack")
 		if err != nil {
 			glog.Warning(err)
 			return false, nil
