@@ -45,7 +45,7 @@ func (gr GitRepo) URL() string {
 // Clone implements the Clone() method of the Repo interface.
 func (gr GitRepo) Clone() error {
 
-	out, err := exec.Command(gr.gitBin, "clone", gr.url, gr.absPath).CombinedOutput()
+	out, err := exec.Command(gr.gitBin, "clone", "--quiet", gr.url, gr.absPath).CombinedOutput()
 	glog.Info(string(out))
 	if err != nil {
 		glog.Error(err)
@@ -64,7 +64,7 @@ func (gr GitRepo) Update() error {
 		return err
 	}
 
-	out, err := exec.Command(gr.gitBin, "pull").CombinedOutput()
+	out, err := exec.Command(gr.gitBin, "pull", "--quiet").CombinedOutput()
 	glog.Info(string(out))
 	if err != nil {
 		glog.Error(err)
