@@ -109,6 +109,7 @@ func (gr GitRepo) isAvailable() (bool, error) {
 			glog.Warning(err)
 			return false, nil
 		}
+		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			glog.Warningf("invalid HTTP status: expected %d, received %d",
