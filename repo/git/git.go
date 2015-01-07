@@ -55,9 +55,8 @@ func (gr GitRepo) Clone() error {
 	}
 
 	out, err := exec.Command(gr.gitBin, "clone", "--quiet", gr.url, gr.absPath).CombinedOutput()
-	glog.Info(string(out))
 	if err != nil {
-		glog.Error(err)
+		glog.Errorf("%v\n%s", err, string(out))
 		return err
 	}
 
@@ -80,9 +79,8 @@ func (gr GitRepo) Update() error {
 	}
 
 	out, err := exec.Command(gr.gitBin, "pull", "--quiet").CombinedOutput()
-	glog.Info(string(out))
 	if err != nil {
-		glog.Error(err)
+		glog.Errorf("%v\n%s", err, string(out))
 		return err
 	}
 
