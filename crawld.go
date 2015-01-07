@@ -160,6 +160,9 @@ func main() {
 	disableFetchers := flag.Bool("disable-fetchers", false, "disable the fetchers")
 	flag.Parse()
 
+	// Make sure we finish writing logs before exiting.
+	defer glog.Flush()
+
 	if len(*configPath) == 0 {
 		fatal("no configuration specified")
 	}
