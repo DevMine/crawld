@@ -31,7 +31,7 @@ func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 
 		wg.Add(len(cs))
 		for _, c := range cs {
-			glog.Infof("crawlingWorker: starting a goroutine for the %v crawler\n", reflect.TypeOf(c))
+			glog.Infof("starting a goroutine for the %v crawler\n", reflect.TypeOf(c))
 			go func(c crawlers.Crawler) {
 				defer wg.Done()
 				c.Crawl()
@@ -40,14 +40,14 @@ func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 
 		wg.Wait()
 
-		glog.Infof("Crawling worker: waiting for %v before re-starting.\n", crawlingInterval)
+		glog.Infof("waiting for %v before re-starting the crawlers.\n", crawlingInterval)
 		<-time.After(crawlingInterval)
 	}
 }
 
 func repoWorker(db *sql.DB, basePath string, fetchInterval time.Duration) {
 	for {
-		glog.Info("repoWorker: starting the repositories fetcher")
+		glog.Info("starting the repositories fetcher")
 
 		repos, err := getAllRepos(db, basePath)
 		if err != nil {
@@ -56,15 +56,15 @@ func repoWorker(db *sql.DB, basePath string, fetchInterval time.Duration) {
 
 		for _, r := range repos {
 			if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
-				glog.Infof("repoWorker: cloning %s into %s\n", r.URL(), r.AbsPath())
+				glog.Infof("cloning %s into %s\n", r.URL(), r.AbsPath())
 				_ = r.Clone()
 				continue
 			}
-			glog.Infof("repoWorker: updating %s\n", r.AbsPath())
+			glog.Infof("updating %s\n", r.AbsPath())
 			_ = r.Update()
 		}
 
-		glog.Infof("Fetching worker: waiting for %v before re-starting.\n", fetchInterval)
+		glog.Infof("waiting for %v before re-starting the fetcher.\n", fetchInterval)
 		<-time.After(fetchInterval)
 	}
 }
@@ -183,7 +183,7 @@ func main() {
 	for _, crawlerConfig := range cfg.Crawlers {
 		switch crawlerConfig.Type {
 		case "github":
-			glog.Info("main: github crawler selected")
+			glog.Info("github crawler selected")
 			gh, err := crawlers.NewGitHubCrawler(crawlerConfig, cfg.CloneDir, db)
 			if err != nil {
 				fatal(err)
