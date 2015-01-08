@@ -156,8 +156,8 @@ func fatal(a ...interface{}) {
 
 func main() {
 	configPath := flag.String("c", "", "configuration file")
-	disableCrawlers := flag.Bool("disable-crawlers", false, "disable the crawlers")
-	disableFetchers := flag.Bool("disable-fetchers", false, "disable the fetchers")
+	disableCrawlers := flag.Bool("disable-crawlers", false, "disable the data crawlers")
+	disableFetcher := flag.Bool("disable-fetcher", false, "disable the repositories fetcher")
 	flag.Parse()
 
 	// Make sure we finish writing logs before exiting.
@@ -212,7 +212,7 @@ func main() {
 	}
 
 	// start the repo puller worker
-	if !*disableFetchers {
+	if !*disableFetcher {
 		wg.Add(1)
 		go repoWorker(db, cfg.CloneDir, fetchInterval)
 	}
