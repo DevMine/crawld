@@ -1,109 +1,71 @@
-# Crawld: a data crawler and repository fetcher
+# crawld: a data crawler and repository fetcher
 
 [![Build Status](https://travis-ci.org/DevMine/crawld.png?branch=master)](https://travis-ci.org/DevMine/crawld)
 [![GoDoc](http://godoc.org/github.com/DevMine/crawld?status.svg)](http://godoc.org/github.com/DevMine/crawld)
 [![GoWalker](http://img.shields.io/badge/doc-gowalker-blue.svg?style=flat)](https://gowalker.org/github.com/DevMine/crawld)
 [![Gobuild Download](http://gobuild.io/badge/github.com/DevMine/crawld/downloads.svg)](http://gobuild.io/github.com/DevMine/crawld)
 
-`crawld` is part of the [DevMine project](http://devmine.github.io/).
+`crawld` is a data crawler and source code repository fetcher.
 
-It is responsible for collecting source code projects metadata and code
-from repositories. Currently, only a GitHub crawler is implemented but
-the architecture of the crawler has been thought that new crawlers (eg a
-BitBucket crawler) can be added without hassle, regardless of the source
-code management system (git, mercurial, svn, ...).
+Currently, only a [GitHub](https://github.com) crawler is implemented but the
+architecture of `crawld` has been designed in a way such that new crawlers (for
+instance a [BitBucket](https://bitbucket.org/) crawler) can be added without
+hassle, regardless of the source code management system
+([git](http://git-scm.com/), [mercurial](http://mercurial.selenic.com/),
+[svn](http://subversion.apache.org/), ...).
 
-This crawler focuses on crawling repositories metadata and those of the
-users that contributed to the repositories.
+This crawler focuses on crawling repositories metadata and those of the users
+that contributed, or are directly related, to the repositories.
 
-Typical information gathered for a repository are:
+All of the collected metadata is stored into a
+[PostgreSQL](http://www.postgresql.org/) database. As `crawld` is designed to
+support several platforms, information common across them is stored in two
+tables: `users` and `repositories`. For the rest of the information, specific
+tables are created (`gh_repositores`, `gh_users` and `gh_organizations` for
+now) and relations are established with the `users` and `repositories` tables.
 
- * Name
- * Primary language
- * Clone URL
- * Clone path (where to clone the repository)
- * Version control system (git, mercurial, ...)
+The table below gives information about what is collected. Bear in mind that
+some information might be incomplete (for instance, if a user does not provide
+any company information).
 
-And for a user:
+Repository       | GitHub Repository | User     | GitHub User         | GitHub Organization
+-----------------|-------------------|----------|---------------------|--------------------
+Name             | GitHub ID         | Username | GitHub ID           | GitHub ID
+Primary language | Full name         | Name     | Login               | Login
+Clone URL        | Description       | Email    | Bio                 | Avatar URL
+                 | Homepage          |          | Blog                | HTML URL
+                 | Fork              |          | Company             | Name
+                 | Default branch    |          | Email               | Company
+                 | Master branch     |          | Hireable            | Blog
+                 | HTML URL          |          | Location            | Location
+                 | Forks count       |          | Avatar URL          | Email
+                 | Open issues count |          | HTML URL            | Collaborators count
+                 | Stargazers count  |          | Followers count     | Creation date
+                 | Subscribers count |          | Following count     | Update date
+                 | Watchers count    |          | Collaborators count |
+                 | Size              |          | Creation date       |
+                 | Creation date     |          | Update date         |
+                 | Update date       |          |                     |
+                 | Last push date    |          |                     |
 
- * Username
- * Name
- * Email
-
-Other information specific to a crawler type are also gathered. Bear in
-mind the some information might be incomplete (for instance, if a use
-does not provide any company information). Here is the information
-gathered by the GitHub crawler for a GitHub user:
-
- * GitHub ID
- * Login
- * Bio
- * Blog
- * Company
- * Email
- * Hireable
- * Location
- * Avatar URL
- * HTML URL
- * Followers count
- * Following count
- * Collaborators count
- * Creation date
- * Update date
-
-And for a GitHub repository:
-
- * GitHub ID
- * Full name
- * Description
- * Homepage
- * Fork
- * Default branch
- * Master branch
- * HTML URL
- * Forks count
- * Open issues count
- * Stargazers count
- * Subscribers count
- * Watchers count
- * Size in kb
- * Creation date
- * Update date
- * Last push date
-
-Some information is also gathered regarding GitHub organizations the
-GitHub users belong to:
-
- * GitHub ID
- * Login
- * Avatar URL
- * HTML URL
- * Name
- * Company
- * Blog
- * Location
- * Email
- * Collaborators count
- * Creation date
- * Update date
-
-Besides getting these information, `crawld` can also clone and update
-the repositories. Depending on the number of repositories you have in
-your database, this may required a fair amount of storage space.
+Besides crawling, `crawld` is also able to clone and update repositories, from
+their cloning URL stored into the database. Depending on the number of
+repositories you have in your database, this may required a fair amount of
+storage space.
 
 ## Installation
 
-This will get you `crawld`:
+To install `crawld`, run this command in a terminal, assuming
+[Go](http://golang.org/) is installed:
 
     go get github.com/DevMine/crawld
 
-Or you can download a binary for your platform from
-[gobuild.io](http://gobuild.io/github.com/DevMine/crawld).
+Or you can download a binary for your platform from the DevMine project's
+[downloads page](http://devmine.ch/downloads).
 
-You also need to setup a [PostgreSQL](http://www.postgresql.org/)
-database. Look at the [README
-file](https://github.com/DevMine/crawld/blob/master/db/README.md) in the
-`db` sub-folder for details.
+You also need to setup a [PostgreSQL](http://www.postgresql.org/) database. Look
+at the [README file](https://github.com/DevMine/crawld/blob/master/db/README.md)
+in the `db` sub-folder for details.
 
 ## Usage and configuration
 
@@ -144,6 +106,9 @@ needs. The configuration file has several sections:
      correspond to the number of repositories to crawl *per language*
      listed in "languages" . When you do not use the search API, this
      is a global limit, regardless of the language.
+   - **since\_id**: corresponds to the repository ID (eg: GitHub repository ID
+     in the case of the github crawler) from which to start querying
+     repositories. Note that this value is ignored when using the search API.
    - **fork**: skip fork repositories if set to false.
    - **oauth\_access\_token**: your API token. If not provided,
      `crawld` will work but the number of API call is usually limited
@@ -158,13 +123,13 @@ needs. The configuration file has several sections:
      will get at most the 1000 most popular languages (in terms of
      stars count) per language listed in "languages".
 
-Once the configuration file has been adjusted, you are ready to run
-`crawld`. You need to specify the path to the configuration file with
-the help of the `-c` option. Example:
+Once the configuration file has been adjusted, you are ready to run `crawld`.
+You need to specify the path to the configuration file with the help of the `-c`
+option. Example:
 
     crawld -c crawld.conf
 
-Some command line options are also available, mainly where to store log
-files and whether to disable the data crawlers or repositories fetcher
-(by default, the crawlers and the fetcher run in parallel). See
-`crawld -h` for more information.
+Some command line options are also available, mainly where to store log files
+and whether to disable the data crawlers or repositories fetcher (by default,
+the crawlers and the fetcher run in parallel). See `crawld -h` for more
+information.
