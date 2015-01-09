@@ -21,7 +21,7 @@ All of the collected metadata is stored into a
 [PostgreSQL](http://www.postgresql.org/) database. As `crawld` is designed to
 support several platforms, information common across them is stored in two
 tables: `users` and `repositories`. For the rest of the information, specific
-tables are created (`gh_repositores`, `gh_users` and `gh_organizations` for
+tables are created (`gh_repositories`, `gh_users` and `gh_organizations` for
 now) and relations are established with the `users` and `repositories` tables.
 
 The table below gives information about what is collected. Bear in mind that
@@ -120,7 +120,7 @@ needs. The configuration file has several sections:
      API are usually limited so you probably not want this option set
      to true usually. In the case of the GitHub crawler, when set to
      true, the limit is 1000 results per search. This means that you
-     will get at most the 1000 most popular languages (in terms of
+     will get at most the 1000 most popular projects (in terms of
      stars count) per language listed in "languages".
 
 Once the configuration file has been adjusted, you are ready to run `crawld`.
