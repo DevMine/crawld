@@ -1,6 +1,7 @@
 *~
 *.swp
 *.prename
+.directory
 
 crawld
 crawld.conf
