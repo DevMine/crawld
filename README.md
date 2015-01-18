@@ -1,4 +1,4 @@
-# crawld: a data crawler and repository fetcher
+# crawld: a data crawler and repositories fetcher
 
 [![Build Status](https://travis-ci.org/DevMine/crawld.png?branch=master)](https://travis-ci.org/DevMine/crawld)
 [![GoDoc](http://godoc.org/github.com/DevMine/crawld?status.svg)](http://godoc.org/github.com/DevMine/crawld)
