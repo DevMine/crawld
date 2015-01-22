@@ -19,9 +19,12 @@ deps:
 	go get -u github.com/google/go-querystring/query
 	go get -u github.com/lib/pq
 
+dev-deps:
+	go get -u github.com/golang/lint/golint
+
 check:
 	go vet ${PKG}/...
-	golint ${GOPATH}/src/${PKG}/...
+	golint ${PKG}/...
 
 cover:
 	go test -cover ${PKG}/...
