@@ -10,6 +10,10 @@
     "clone_dir": "/var/crawld",
     "crawling_time_interval": "12h",
     "fetch_time_interval": "10m",
+    "fetch_languages": [
+        "go",
+        "ruby"
+    ],
     "crawlers": [
         {
             "type": "github",

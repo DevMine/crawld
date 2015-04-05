@@ -39,6 +39,11 @@ type Config struct {
 	// repositories fetching periods.
 	FetchTimeInterval string `json:"fetch_time_interval"`
 
+	// FetchLanguages is the list of programming languages to fetch.
+	// If the list is empty or nil, the fetcher will fetch all repositories,
+	// independently of the language.
+	FetchLanguages []string `json:"fetch_languages"`
+
 	// Database is the database configuration.
 	Database DatabaseConfig `json:"database"`
 }

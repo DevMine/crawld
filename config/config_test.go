@@ -16,6 +16,7 @@ const (
 
 	expectedCloneDir             = "/var/crawld"
 	expectedCrawlingTimeInterval = "12h"
+	expectedFetchLanguages       = "go,ruby"
 
 	expectedCrawlersLen             = 1
 	expectedCrawlerType             = "github"
@@ -47,6 +48,11 @@ func TestReadConfig(t *testing.T) {
 	if cfg.CrawlingTimeInterval != expectedCrawlingTimeInterval {
 		t.Errorf("crawling_time_interval: expected '%s', found '%s'\n",
 			expectedCrawlingTimeInterval, cfg.CrawlingTimeInterval)
+	}
+
+	if strings.Join(cfg.FetchLanguages, ",") != expectedFetchLanguages {
+		t.Errorf("fetch_languages: expected '%s', found '%s'\n",
+			expectedFetchLanguages, cfg.FetchLanguages)
 	}
 
 	if len(cfg.Crawlers) != expectedCrawlersLen {

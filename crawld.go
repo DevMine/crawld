@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,11 +46,11 @@ func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 	}
 }
 
-func repoWorker(db *sql.DB, basePath string, fetchInterval time.Duration) {
+func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration) {
 	for {
 		glog.Info("starting the repositories fetcher")
 
-		repos, err := getAllRepos(db, basePath)
+		repos, err := getAllRepos(db, langs, basePath)
 		if err != nil {
 			fatal(err)
 		}
@@ -78,8 +79,17 @@ func isDirEmpty(path string) bool {
 	return len(fis) == 0
 }
 
-func getAllRepos(db *sql.DB, basePath string) ([]repo.Repo, error) {
-	rows, err := db.Query("SELECT vcs, clone_path, clone_url FROM repositories")
+func getAllRepos(db *sql.DB, langs []string, basePath string) ([]repo.Repo, error) {
+	var inClause string
+	if langs != nil && len(langs) > 0 {
+		// Quote languages.
+		for idx, val := range langs {
+			langs[idx] = "'" + val + "'"
+		}
+		inClause = " WHERE LOWER(primary_language) IN (" + strings.Join(langs, ",") + ")"
+	}
+
+	rows, err := db.Query("SELECT vcs, clone_path, clone_url FROM repositories" + inClause)
 	if err != nil {
 		glog.Error(err)
 		return nil, err
@@ -214,7 +224,7 @@ func main() {
 	// start the repo puller worker
 	if !*disableFetcher {
 		wg.Add(1)
-		go repoWorker(db, cfg.CloneDir, fetchInterval)
+		go repoWorker(db, cfg.FetchLanguages, cfg.CloneDir, fetchInterval)
 	}
 
 	// wait until the cows come home saint
