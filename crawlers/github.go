@@ -15,9 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/goauth2/oauth"
 	"github.com/golang/glog"
 	"github.com/google/go-github/github"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
 
 	"github.com/DevMine/crawld/config"
 )
@@ -76,6 +77,18 @@ type GitHubCrawler struct {
 // ensure that GitHubCrawler implements the Crawler interface
 var _ Crawler = (*GitHubCrawler)(nil)
 
+// implement the oauth2.TokenSource interface
+type tokenSource struct {
+	AccessToken string
+}
+
+func (ts *tokenSource) Token() (*oauth2.Token, error) {
+	token := &oauth2.Token{
+		AccessToken: ts.AccessToken,
+	}
+	return token, nil
+}
+
 // NewGitHubCrawler creates a new GitHub crawler.
 func NewGitHubCrawler(cfg config.CrawlerConfig, cloneDir string, db *sql.DB) (*GitHubCrawler, error) {
 	if db == nil {
@@ -84,10 +97,10 @@ func NewGitHubCrawler(cfg config.CrawlerConfig, cloneDir string, db *sql.DB) (*G
 
 	var httpClient *http.Client
 	if len(strings.Trim(cfg.OAuthAccessToken, " ")) != 0 {
-		t := &oauth.Transport{
-			Token: &oauth.Token{AccessToken: cfg.OAuthAccessToken},
+		ts := &tokenSource{
+			AccessToken: cfg.OAuthAccessToken,
 		}
-		httpClient = t.Client()
+		httpClient = oauth2.NewClient(context.TODO(), ts)
 	}
 	client := github.NewClient(httpClient)
 

@@ -13,7 +13,8 @@ test:
 	go test -v ${PKG}/...
 
 deps:
-	go get -u code.google.com/p/goauth2/oauth
+	go get -u golang.org/x/oauth2
+	go get -u golang.org/x/net/context
 	go get -u github.com/golang/glog
 	go get -u github.com/google/go-github/github
 	go get -u github.com/google/go-querystring/query
