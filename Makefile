@@ -12,7 +12,10 @@ build:
 test:
 	go test -v ${PKG}/...
 
+# FIXME: we shall compile libgit2 statically with git2go to prevent libgit2
+# from being a dependency to run crawld
 deps:
+	go get -u github.com/libgit2/git2go
 	go get -u golang.org/x/oauth2
 	go get -u golang.org/x/net/context
 	go get -u github.com/golang/glog
