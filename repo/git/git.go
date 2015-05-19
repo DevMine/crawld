@@ -9,6 +9,7 @@ package git
 import (
 	"net/http"
 	"net/url"
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -87,7 +88,7 @@ func (gr GitRepo) Update() error {
 	}
 
 	if !ref.IsBranch() {
-		// TODO delete and reclone
+		return errors.New("repository reference is not a branch (likely in a detached HEAD state)")
 	}
 
 	remoteRef, err := ref.Branch().Upstream()
@@ -103,7 +104,7 @@ func (gr GitRepo) Update() error {
 	checkoutOpts.Strategy = g2g.CheckoutForce
 
 	if err = gr.r.CheckoutHead(&checkoutOpts); err != nil {
-		// TODO delete and reclone
+		return errors.New("failed to checkout new HEAD")
 	}
 
 	return nil
