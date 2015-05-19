@@ -6,8 +6,6 @@ package repo
 
 import (
 	"errors"
-	"path/filepath"
-	"strings"
 
 	g2g "github.com/libgit2/git2go"
 )
@@ -90,15 +88,4 @@ func (gr GitRepo) Update() error {
 	}
 
 	return nil
-}
-
-// hasGitExt returns true if the path ends with a ".git" extension,
-// false otherwise.
-func hasGitExt(path string) bool {
-	return filepath.Ext(path) == ".git"
-}
-
-// cleanURL removes the trailing slashes of an URL, if any.
-func cleanURL(url string) string {
-	return strings.TrimSuffix(url, "/")
 }
