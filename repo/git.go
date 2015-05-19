@@ -2,9 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package git defines a Git repository type that implements the repo.Repo
-// interface.
-package git
+package repo
 
 import (
 	"errors"
@@ -21,8 +19,9 @@ type GitRepo struct {
 	url     string
 }
 
-// New creates a new GitRepo.
-func New(absPath string, url string) (*GitRepo, error) {
+// newGitRepo creates a new GitRepo. GitRepo implements the Repo interface
+// for a git repository.
+func newGitRepo(absPath string, url string) (*GitRepo, error) {
 	// attempt opening the repository as it may already exist
 	// ignore if it fails since it will be created at first call to Clone()
 	r, _ := g2g.OpenRepository(absPath)

@@ -23,7 +23,6 @@ import (
 	"github.com/DevMine/crawld/config"
 	"github.com/DevMine/crawld/crawlers"
 	"github.com/DevMine/crawld/repo"
-	"github.com/DevMine/crawld/repo/git"
 )
 
 func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
@@ -108,14 +107,8 @@ func getAllRepos(db *sql.DB, langs []string, basePath string) ([]repo.Repo, erro
 		var newRepo repo.Repo
 		var err error
 
-		switch vcs {
-		case "git":
-			newRepo, err = git.New(filepath.Join(basePath, clonePath), cloneURL)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-		default:
+		newRepo, err = repo.New(vcs, filepath.Join(basePath, clonePath), cloneURL)
+		if err != nil {
 			glog.Error(err)
 			continue
 		}
