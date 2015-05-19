@@ -7,13 +7,10 @@
 package git
 
 import (
-	"net/http"
-	"net/url"
 	"errors"
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/glog"
 	g2g "github.com/libgit2/git2go"
 )
 
@@ -45,13 +42,6 @@ func (gr GitRepo) URL() string {
 
 // Clone implements the Clone() method of the Repo interface.
 func (gr GitRepo) Clone() error {
-	if ok, err := gr.isAvailable(); err != nil {
-		return err
-	} else if !ok {
-		glog.Info(gr.url, " not available")
-		return nil
-	}
-
 	var err error
 	gr.r, err = g2g.Clone(gr.url, gr.absPath, &g2g.CloneOptions{})
 	if err != nil {
@@ -65,13 +55,6 @@ func (gr GitRepo) Clone() error {
 // It fetches changes from remote and performs a fast-forward on the local
 // branch so as to match the remote branch.
 func (gr GitRepo) Update() error {
-	if ok, err := gr.isAvailable(); err != nil {
-		return err
-	} else if !ok {
-		glog.Info(gr.url, " not available")
-		return nil
-	}
-
 	origin, err := gr.r.LookupRemote("origin")
 	if err != nil {
 		return err
@@ -108,41 +91,6 @@ func (gr GitRepo) Update() error {
 	}
 
 	return nil
-}
-
-// isAvailable queries the git repository in order to determine whether a the
-// repository exists and is publicly available.
-func (gr GitRepo) isAvailable() (bool, error) {
-	u, err := url.Parse(gr.url)
-	if err != nil {
-		return false, err
-	}
-
-	switch u.Scheme {
-	case "http", "https":
-		queryURL := cleanURL(gr.url)
-		if !hasGitExt(u.Path) {
-			queryURL += ".git"
-		}
-
-		resp, err := http.Get(queryURL + "/git-upload-pack")
-		if err != nil {
-			glog.Warning(err)
-			return false, nil
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			glog.Warningf("invalid HTTP status: expected %d, received %d",
-				http.StatusOK, resp.StatusCode)
-			return false, nil
-		}
-	default:
-		glog.Warningf("protocol %s not supported", u.Scheme)
-		return false, nil
-	}
-
-	return true, nil
 }
 
 // hasGitExt returns true if the path ends with a ".git" extension,
