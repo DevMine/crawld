@@ -187,7 +187,7 @@ func main() {
 		switch crawlerConfig.Type {
 		case "github":
 			glog.Info("github crawler selected")
-			gh, err := crawlers.NewGitHubCrawler(crawlerConfig, cfg.CloneDir, db)
+			gh, err := crawlers.NewGitHubCrawler(crawlerConfig, db)
 			if err != nil {
 				fatal(err)
 			}

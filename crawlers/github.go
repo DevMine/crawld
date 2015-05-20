@@ -69,9 +69,8 @@ func (e invalidStructError) Error() string {
 type GitHubCrawler struct {
 	config.CrawlerConfig
 
-	cloneDir string
-	client   *github.Client
-	db       *sql.DB
+	client *github.Client
+	db     *sql.DB
 }
 
 // ensure that GitHubCrawler implements the Crawler interface
@@ -90,7 +89,7 @@ func (ts *tokenSource) Token() (*oauth2.Token, error) {
 }
 
 // NewGitHubCrawler creates a new GitHub crawler.
-func NewGitHubCrawler(cfg config.CrawlerConfig, cloneDir string, db *sql.DB) (*GitHubCrawler, error) {
+func NewGitHubCrawler(cfg config.CrawlerConfig, db *sql.DB) (*GitHubCrawler, error) {
 	if db == nil {
 		return nil, errors.New("database session cannot be nil")
 	}
@@ -104,7 +103,7 @@ func NewGitHubCrawler(cfg config.CrawlerConfig, cloneDir string, db *sql.DB) (*G
 	}
 	client := github.NewClient(httpClient)
 
-	return &GitHubCrawler{cfg, cloneDir, client, db}, nil
+	return &GitHubCrawler{cfg, client, db}, nil
 }
 
 // Crawl implements the Crawl() method of the Crawler interface.
