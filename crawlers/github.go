@@ -5,10 +5,8 @@
 package crawlers
 
 import (
-	"bytes"
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -27,54 +25,18 @@ import (
 // must have. This is necessary because API calls are wrapped into a function
 // that checks if the API call rate limit is reached or not and waits before
 // doing the call again if the limit is reached.
-type apiCallFunc func(gc *GitHubCrawler, args ...interface{}) (interface{}, error)
+type apiCallFunc func(args ...interface{}) (interface{}, error)
 
-var (
-	errTooManyCall      = errors.New("API rate limit exceeded")
-	errUnavailable      = errors.New("resource unavailable")
-	errRuntime          = errors.New("runtime error")
-	errInvalidArgs      = errors.New("invalid arguments")
-	errNilArg           = errors.New("nil argument")
-	errInvalidParamType = errors.New("invalid parameter type")
-)
-
-type invalidStructError struct {
-	message string
-	fields  []string
-}
-
-func newInvalidStructError(msg string) *invalidStructError {
-	return &invalidStructError{message: msg, fields: []string{}}
-}
-
-func (e *invalidStructError) AddField(f string) *invalidStructError {
-	e.fields = append(e.fields, f)
-	return e
-}
-
-func (e invalidStructError) FieldsLen() int {
-	return len(e.fields)
-}
-
-func (e invalidStructError) Error() string {
-	buf := bytes.NewBufferString(e.message)
-	buf.WriteString("{ ")
-	buf.WriteString(strings.Join(e.fields, ", "))
-	buf.WriteString(" }\n")
-
-	return buf.String()
-}
-
-// GitHubCrawler implements the Crawler interface.
-type GitHubCrawler struct {
+// gitHubCrawler implements the Crawler interface.
+type gitHubCrawler struct {
 	config.CrawlerConfig
 
 	client *github.Client
 	db     *sql.DB
 }
 
-// ensure that GitHubCrawler implements the Crawler interface
-var _ Crawler = (*GitHubCrawler)(nil)
+// ensure that gitHubCrawler implements the Crawler interface
+var _ Crawler = (*gitHubCrawler)(nil)
 
 // implement the oauth2.TokenSource interface
 type tokenSource struct {
@@ -89,7 +51,7 @@ func (ts *tokenSource) Token() (*oauth2.Token, error) {
 }
 
 // newGitHubCrawler creates a new GitHub crawler.
-func newGitHubCrawler(cfg config.CrawlerConfig, db *sql.DB) (*GitHubCrawler, error) {
+func newGitHubCrawler(cfg config.CrawlerConfig, db *sql.DB) (*gitHubCrawler, error) {
 	if db == nil {
 		return nil, errors.New("database session cannot be nil")
 	}
@@ -103,17 +65,17 @@ func newGitHubCrawler(cfg config.CrawlerConfig, db *sql.DB) (*GitHubCrawler, err
 	}
 	client := github.NewClient(httpClient)
 
-	return &GitHubCrawler{cfg, client, db}, nil
+	return &gitHubCrawler{cfg, client, db}, nil
 }
 
 // Crawl implements the Crawl() method of the Crawler interface.
-func (g *GitHubCrawler) Crawl() {
+func (g *gitHubCrawler) Crawl() {
 	if g.UseSearchAPI {
 		for _, lang := range g.Languages {
-			_ = g.call(true, fetchTopRepositories, lang)
+			_ = g.call(true, g.fetchTopRepositories, lang)
 		}
 	} else {
-		_ = g.call(false, fetchRepositories)
+		_ = g.call(false, g.fetchRepositories)
 	}
 }
 
@@ -122,13 +84,13 @@ func (g *GitHubCrawler) Crawl() {
 // waits for the appropriate time before retrying the query.
 // isSearchRequest shall be used to indicate if apiCallFunc calls the search API
 // (rate limit for the search API differ from the core API).
-func (g *GitHubCrawler) call(isSearchRequest bool, fct apiCallFunc, args ...interface{}) interface{} {
+func (g *gitHubCrawler) call(isSearchRequest bool, fct apiCallFunc, args ...interface{}) interface{} {
 	var ret interface{}
 	var err error
 
 	// gotta wait if rate limit is exceeded
 	for {
-		if ret, err = fct(g, args...); err != errTooManyCall {
+		if ret, err = fct(args...); err != errTooManyCall {
 			break
 		}
 
@@ -157,28 +119,28 @@ func (g *GitHubCrawler) call(isSearchRequest bool, fct apiCallFunc, args ...inte
 // args expects no argument.
 //
 // TODO add doc => the limit N is global to all languages
-func fetchRepositories(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
+func (g *gitHubCrawler) fetchRepositories(args ...interface{}) (interface{}, error) {
 	if len(args) != 0 {
 		glog.Error("invalid number of arguments")
 		return nil, errInvalidArgs
 	}
 
-	n := gc.Limit
+	n := g.Limit
 
-	keepFork := gc.Fork
+	keepFork := g.Fork
 	hasLimit := n > 0
 
 	// GitHub lists repositories 100 per page, regardless of the per_page option...
 	opt := &github.RepositoryListAllOptions{}
 
-	sinceID := gc.SinceID
+	sinceID := g.SinceID
 ResultsLoop:
 	for {
 		opt.Since = sinceID
-		repos, resp, err := gc.client.Repositories.ListAll(opt)
+		repos, resp, err := g.client.Repositories.ListAll(opt)
 		if err != nil {
 			glog.Error(err)
-			return nil, genAPICallFuncError(resp, err)
+			return nil, g.genAPICallFuncError(resp, err)
 		}
 
 		if len(repos) == 0 {
@@ -205,13 +167,13 @@ ResultsLoop:
 				continue
 			}
 
-			if ok, err := isLanguageWanted(gc.Languages, repo.Language); err != nil {
+			if ok, err := isLanguageWanted(g.Languages, repo.Language); err != nil {
 				glog.Error(err)
 				continue
 			} else if !ok {
-				langs := gc.call(false, fetchRepositoryLanguages, *repo.Owner.Login, *repo.Name)
+				langs := g.call(false, g.fetchRepositoryLanguages, *repo.Owner.Login, *repo.Name)
 
-				if ok, err := isLanguageWanted(gc.Languages, langs); err != nil {
+				if ok, err := isLanguageWanted(g.Languages, langs); err != nil {
 					glog.Error(err)
 					continue
 				} else if !ok {
@@ -220,7 +182,7 @@ ResultsLoop:
 			}
 
 			var fullRepo *github.Repository
-			tmpRepo := gc.call(false, fetchRepository, *repo.Owner.Login, *repo.Name)
+			tmpRepo := g.call(false, g.fetchRepository, *repo.Owner.Login, *repo.Name)
 			switch tmpRepo.(type) {
 			case *github.Repository:
 				fullRepo = tmpRepo.(*github.Repository)
@@ -236,7 +198,7 @@ ResultsLoop:
 
 			// skip when an the method fail because the repository is not
 			// saved into the DB
-			if !insertOrUpdateRepo(gc, fullRepo) {
+			if !g.insertOrUpdateRepo(fullRepo) {
 				continue
 			}
 
@@ -261,13 +223,13 @@ ResultsLoop:
 // Be very careful if you do not specify a limit and/or a programming language.
 //
 // TODO add doc => the limit N is for language separately
-func fetchTopRepositories(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
+func (g *gitHubCrawler) fetchTopRepositories(args ...interface{}) (interface{}, error) {
 	if len(args) != 1 {
 		glog.Error("invalid number of arguments")
 		return nil, errInvalidArgs
 	}
 
-	n := gc.Limit
+	n := g.Limit
 
 	var lang string
 	switch args[0].(type) {
@@ -278,18 +240,18 @@ func fetchTopRepositories(gc *GitHubCrawler, args ...interface{}) (interface{}, 
 		return nil, errInvalidParamType
 	}
 
-	keepFork := gc.Fork
+	keepFork := g.Fork
 	hasLimit := n > 0
 
 	opt := &github.SearchOptions{Sort: "stars", ListOptions: github.ListOptions{PerPage: 100}}
 
 ResultsLoop:
 	for {
-		results, resp, err := gc.client.Search.Repositories(
+		results, resp, err := g.client.Search.Repositories(
 			"language:"+lang, opt)
 		if err != nil {
 			glog.Error(err)
-			return nil, genAPICallFuncError(resp, err)
+			return nil, g.genAPICallFuncError(resp, err)
 		}
 
 		repos := results.Repositories
@@ -312,7 +274,7 @@ ResultsLoop:
 
 			// skip when an the method fail because the repository is not
 			// saved into the DB
-			if !insertOrUpdateRepo(gc, &repo) {
+			if !g.insertOrUpdateRepo(&repo) {
 				continue
 			}
 
@@ -334,7 +296,7 @@ ResultsLoop:
 // - rpeo: the repository name
 //
 // It returns a map of languages (map[string]int, language => num bytes)
-func fetchRepositoryLanguages(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
+func (g *gitHubCrawler) fetchRepositoryLanguages(args ...interface{}) (interface{}, error) {
 	if len(args) != 2 {
 		glog.Error("invalid number of arguments")
 		return nil, errInvalidArgs
@@ -358,10 +320,10 @@ func fetchRepositoryLanguages(gc *GitHubCrawler, args ...interface{}) (interface
 		return nil, errInvalidParamType
 	}
 
-	langs, resp, err := gc.client.Repositories.ListLanguages(owner, repo)
+	langs, resp, err := g.client.Repositories.ListLanguages(owner, repo)
 	if err != nil {
 		glog.Error(err)
-		return nil, genAPICallFuncError(resp, err)
+		return nil, g.genAPICallFuncError(resp, err)
 	}
 
 	return langs, nil
@@ -374,7 +336,7 @@ func fetchRepositoryLanguages(gc *GitHubCrawler, args ...interface{}) (interface
 // - rpeo: the repository name
 //
 // It returns a github.Repository
-func fetchRepository(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
+func (g *gitHubCrawler) fetchRepository(args ...interface{}) (interface{}, error) {
 	if len(args) != 2 {
 		glog.Error("invalid number of arguments")
 		return nil, errInvalidArgs
@@ -398,10 +360,10 @@ func fetchRepository(gc *GitHubCrawler, args ...interface{}) (interface{}, error
 		return nil, errInvalidParamType
 	}
 
-	ghRepo, resp, err := gc.client.Repositories.Get(owner, repo)
+	ghRepo, resp, err := g.client.Repositories.Get(owner, repo)
 	if err != nil {
 		glog.Error(err)
-		return nil, genAPICallFuncError(resp, err)
+		return nil, g.genAPICallFuncError(resp, err)
 	}
 
 	return ghRepo, nil
@@ -409,14 +371,14 @@ func fetchRepository(gc *GitHubCrawler, args ...interface{}) (interface{}, error
 
 // getRepoID returns the repository id of repo in repositories table.
 // If repo is not in the table, then 0 is returned. If an error occurs, -1 is returned.
-func getRepoID(gc *GitHubCrawler, repo *github.Repository) int {
+func (g *gitHubCrawler) getRepoID(repo *github.Repository) int {
 	if repo == nil {
 		glog.Error("'repo' arg given is nil")
 		return -1
 	}
 
 	var id int
-	err := gc.db.QueryRow("SELECT repository_id FROM gh_repositories WHERE github_id=$1", repo.ID).Scan(&id)
+	err := g.db.QueryRow("SELECT repository_id FROM gh_repositories WHERE github_id=$1", repo.ID).Scan(&id)
 	switch {
 	case err == sql.ErrNoRows:
 		return 0
@@ -429,14 +391,14 @@ func getRepoID(gc *GitHubCrawler, repo *github.Repository) int {
 
 // getGhRepoID returns the github repository id of repo in repositories table.
 // If repo is not in the table, then 0 is returned. If an error occurs, -1 is returned.
-func getGhRepoID(gc *GitHubCrawler, repo *github.Repository) int {
+func (g *gitHubCrawler) getGhRepoID(repo *github.Repository) int {
 	if repo == nil {
 		glog.Error("'repo' arg given is nil")
 		return -1
 	}
 
 	var id int
-	err := gc.db.QueryRow("SELECT id FROM gh_repositories WHERE github_id=$1", repo.ID).Scan(&id)
+	err := g.db.QueryRow("SELECT id FROM gh_repositories WHERE github_id=$1", repo.ID).Scan(&id)
 	switch {
 	case err == sql.ErrNoRows:
 		return 0
@@ -449,14 +411,14 @@ func getGhRepoID(gc *GitHubCrawler, repo *github.Repository) int {
 
 // getGhOrgID returns the github organization id of org in gh_organizations table.
 // If org is not in the table, then 0 is returned. If an error occurs, -1 is returned.
-func getGhOrgID(gc *GitHubCrawler, org *github.Organization) int {
+func (g *gitHubCrawler) getGhOrgID(org *github.Organization) int {
 	if org == nil {
 		glog.Error("'org' arg given is nil")
 		return -1
 	}
 
 	var id int
-	err := gc.db.QueryRow("SELECT id FROM gh_organizations WHERE github_id=$1", org.ID).Scan(&id)
+	err := g.db.QueryRow("SELECT id FROM gh_organizations WHERE github_id=$1", org.ID).Scan(&id)
 	switch {
 	case err == sql.ErrNoRows:
 		return 0
@@ -469,14 +431,14 @@ func getGhOrgID(gc *GitHubCrawler, org *github.Organization) int {
 
 // getGhUserID returns the github user id of user in gh_users table.
 // If user not in the table, then 0 is returned. If an error occurs, -1 is returned.
-func getGhUserID(gc *GitHubCrawler, user *github.User) int {
+func (g *gitHubCrawler) getGhUserID(user *github.User) int {
 	if user == nil {
 		glog.Error("'user' arg given is nil")
 		return -1
 	}
 
 	var id int
-	err := gc.db.QueryRow("SELECT id FROM gh_users WHERE github_id=$1", user.ID).Scan(&id)
+	err := g.db.QueryRow("SELECT id FROM gh_users WHERE github_id=$1", user.ID).Scan(&id)
 	switch {
 	case err == sql.ErrNoRows:
 		return 0
@@ -489,14 +451,14 @@ func getGhUserID(gc *GitHubCrawler, user *github.User) int {
 
 // getUserID returns the github user id of user in users table.
 // If user not in the table, then 0 is returned. If an error occurs, -1 is returned.
-func getUserID(gc *GitHubCrawler, user *github.User) int {
+func (g *gitHubCrawler) getUserID(user *github.User) int {
 	if user == nil {
 		glog.Error("'user' arg given is nil")
 		return -1
 	}
 
 	var id int
-	err := gc.db.QueryRow("SELECT user_id FROM gh_users WHERE github_id=$1", user.ID).Scan(&id)
+	err := g.db.QueryRow("SELECT user_id FROM gh_users WHERE github_id=$1", user.ID).Scan(&id)
 	switch {
 	case err == sql.ErrNoRows:
 		return 0
@@ -510,7 +472,7 @@ func getUserID(gc *GitHubCrawler, user *github.User) int {
 // insertOrUpdateRepo inserts or updates a repository. It also inserts or
 // updates related GitHub repository, users, GitHub users and GitHub
 // organization (if any).
-func insertOrUpdateRepo(gc *GitHubCrawler, repo *github.Repository) bool {
+func (g *gitHubCrawler) insertOrUpdateRepo(repo *github.Repository) bool {
 	if repo == nil {
 		glog.Error("'repo' arg given is nil")
 		return false
@@ -521,7 +483,7 @@ func insertOrUpdateRepo(gc *GitHubCrawler, repo *github.Repository) bool {
 	repoFields := []string{"name", "primary_language", "clone_url", "clone_path", "vcs"}
 
 	var query string
-	if id := getRepoID(gc, repo); id > 0 {
+	if id := g.getRepoID(repo); id > 0 {
 		query = genUpdateQuery("repositories", id, repoFields...)
 	} else if id == 0 {
 		query = genInsQuery("repositories", repoFields...)
@@ -530,23 +492,23 @@ func insertOrUpdateRepo(gc *GitHubCrawler, repo *github.Repository) bool {
 	}
 
 	var repoID int64
-	err := gc.db.QueryRow(query+" RETURNING id", repo.Name, repo.Language, repo.CloneURL, clonePath, "git").Scan(&repoID)
+	err := g.db.QueryRow(query+" RETURNING id", repo.Name, repo.Language, repo.CloneURL, clonePath, "git").Scan(&repoID)
 	if err != nil {
 		glog.Error(err)
 		return false
 	}
 
 	if *repo.Owner.Type != "Organization" {
-		if !insertOrUpdateUser(gc, repo.Owner.Login, repoID, 0) {
+		if !g.insertOrUpdateUser(repo.Owner.Login, repoID, 0) {
 			return false
 		}
 	} else {
-		if !insertOrUpdateGhOrg(gc, repo.Owner.Login, repoID) {
+		if !g.insertOrUpdateGhOrg(repo.Owner.Login, repoID) {
 			return false
 		}
 	}
 
-	if !insertOrUpdateGhRepo(gc, repoID, repo) {
+	if !g.insertOrUpdateGhRepo(repoID, repo) {
 		return false
 	}
 
@@ -555,7 +517,7 @@ func insertOrUpdateRepo(gc *GitHubCrawler, repo *github.Repository) bool {
 
 // insertOrUpdateGhRepo inserts, or updates, a github repository in the
 // database.
-func insertOrUpdateGhRepo(gc *GitHubCrawler, repoID int64, repo *github.Repository) bool {
+func (g *gitHubCrawler) insertOrUpdateGhRepo(repoID int64, repo *github.Repository) bool {
 	if repo == nil {
 		glog.Error("'repo' arg given is nil")
 		return false
@@ -593,7 +555,7 @@ func insertOrUpdateGhRepo(gc *GitHubCrawler, repoID int64, repo *github.Reposito
 	}
 
 	var query string
-	if id := getGhRepoID(gc, repo); id > 0 {
+	if id := g.getGhRepoID(repo); id > 0 {
 		query = genUpdateQuery("gh_repositories", id, ghRepoFields...)
 	} else if id == 0 {
 		query = genInsQuery("gh_repositories", ghRepoFields...)
@@ -601,7 +563,7 @@ func insertOrUpdateGhRepo(gc *GitHubCrawler, repoID int64, repo *github.Reposito
 		return false
 	}
 
-	_, err := gc.db.Exec(query,
+	_, err := g.db.Exec(query,
 		repoID,
 		repo.FullName,
 		repo.Description,
@@ -627,7 +589,7 @@ func insertOrUpdateGhRepo(gc *GitHubCrawler, repoID int64, repo *github.Reposito
 	}
 
 	if ghOrganizationID != nil {
-		if !insertOrUpdateGhOrg(gc, repo.Organization.Login, repoID) {
+		if !g.insertOrUpdateGhOrg(repo.Organization.Login, repoID) {
 			return false
 		}
 	}
@@ -637,14 +599,14 @@ func insertOrUpdateGhRepo(gc *GitHubCrawler, repoID int64, repo *github.Reposito
 
 // insertOrUpdateGhOrg inserts, or updates, a github organization into
 // the database.
-func insertOrUpdateGhOrg(gc *GitHubCrawler, orgName *string, repoID int64) bool {
+func (g *gitHubCrawler) insertOrUpdateGhOrg(orgName *string, repoID int64) bool {
 	if orgName == nil {
 		glog.Error("'orgName' arg given is nil")
 		return false
 	}
 	glog.Infof("insert or update github organization: %s", *orgName)
 
-	tmp := gc.call(false, fetchOrganization, *orgName)
+	tmp := g.call(false, g.fetchOrganization, *orgName)
 	var org *github.Organization
 	switch tmp.(type) {
 	case *github.Organization:
@@ -670,7 +632,7 @@ func insertOrUpdateGhOrg(gc *GitHubCrawler, orgName *string, repoID int64) bool 
 	}
 
 	var query string
-	if id := getGhOrgID(gc, org); id > 0 {
+	if id := g.getGhOrgID(org); id > 0 {
 		query = genUpdateQuery("gh_organizations", id, ghOrgFields...)
 	} else if id == 0 {
 		query = genInsQuery("gh_organizations", ghOrgFields...)
@@ -679,7 +641,7 @@ func insertOrUpdateGhOrg(gc *GitHubCrawler, orgName *string, repoID int64) bool 
 	}
 
 	var orgID int64
-	err := gc.db.QueryRow(query+" RETURNING id",
+	err := g.db.QueryRow(query+" RETURNING id",
 		org.Login,
 		org.ID,
 		org.AvatarURL,
@@ -698,7 +660,7 @@ func insertOrUpdateGhOrg(gc *GitHubCrawler, orgName *string, repoID int64) bool 
 		return false
 	}
 
-	tmp = gc.call(false, fetchOrganizationMembers, *org.Login)
+	tmp = g.call(false, g.fetchOrganizationMembers, *org.Login)
 	var users []github.User
 	switch tmp.(type) {
 	case []github.User:
@@ -708,7 +670,7 @@ func insertOrUpdateGhOrg(gc *GitHubCrawler, orgName *string, repoID int64) bool 
 	}
 
 	for _, user := range users {
-		if !insertOrUpdateUser(gc, user.Login, repoID, orgID) {
+		if !g.insertOrUpdateUser(user.Login, repoID, orgID) {
 			return false
 		}
 	}
@@ -717,7 +679,7 @@ func insertOrUpdateGhOrg(gc *GitHubCrawler, orgName *string, repoID int64) bool 
 }
 
 // insertOrUpdateUser inserts, or updates, a github user into the database.
-func insertOrUpdateUser(gc *GitHubCrawler, username *string, repoID int64, orgID int64) bool {
+func (g *gitHubCrawler) insertOrUpdateUser(username *string, repoID int64, orgID int64) bool {
 	if username == nil {
 		glog.Error("'username' arg given is nil")
 		return false
@@ -729,7 +691,7 @@ func insertOrUpdateUser(gc *GitHubCrawler, username *string, repoID int64, orgID
 		return false
 	}
 
-	tmp := gc.call(false, fetchUser, *username)
+	tmp := g.call(false, g.fetchUser, *username)
 	var user *github.User
 	switch tmp.(type) {
 	case *github.User:
@@ -742,7 +704,7 @@ func insertOrUpdateUser(gc *GitHubCrawler, username *string, repoID int64, orgID
 	userFields := []string{"username", "name", "email"}
 
 	var query string
-	if id := getUserID(gc, user); id > 0 {
+	if id := g.getUserID(user); id > 0 {
 		query = genUpdateQuery("users", id, userFields...)
 	} else if id == 0 {
 		query = genInsQuery("users", userFields...)
@@ -751,17 +713,17 @@ func insertOrUpdateUser(gc *GitHubCrawler, username *string, repoID int64, orgID
 	}
 
 	var userID int64
-	err := gc.db.QueryRow(query+" RETURNING id", user.Login, user.Name, user.Email).Scan(&userID)
+	err := g.db.QueryRow(query+" RETURNING id", user.Login, user.Name, user.Email).Scan(&userID)
 	if err != nil {
 		glog.Error(err)
 		return false
 	}
 
-	if !linkUserToRepo(gc.db, userID, repoID) {
+	if !g.linkUserToRepo(userID, repoID) {
 		return false
 	}
 
-	if !insertOrUpdateGhUser(gc, userID, user, orgID) {
+	if !g.insertOrUpdateGhUser(userID, user, orgID) {
 		return false
 	}
 
@@ -769,7 +731,7 @@ func insertOrUpdateUser(gc *GitHubCrawler, username *string, repoID int64, orgID
 }
 
 // insertOrUpdateGhUser inserts, or updates, a github user into the database.
-func insertOrUpdateGhUser(gc *GitHubCrawler, userID int64, user *github.User, orgID int64) bool {
+func (g *gitHubCrawler) insertOrUpdateGhUser(userID int64, user *github.User, orgID int64) bool {
 	if user == nil {
 		glog.Error("'user' arg given is nil")
 		return false
@@ -801,7 +763,7 @@ func insertOrUpdateGhUser(gc *GitHubCrawler, userID int64, user *github.User, or
 	}
 
 	var query string
-	if id := getGhUserID(gc, user); id > 0 {
+	if id := g.getGhUserID(user); id > 0 {
 		query = genUpdateQuery("gh_users", id, ghUserFields...)
 	} else if id == 0 {
 		query = genInsQuery("gh_users", ghUserFields...)
@@ -810,7 +772,7 @@ func insertOrUpdateGhUser(gc *GitHubCrawler, userID int64, user *github.User, or
 	}
 
 	var ghUserID int64
-	err := gc.db.QueryRow(query+" RETURNING id",
+	err := g.db.QueryRow(query+" RETURNING id",
 		userID,
 		user.ID,
 		user.Login,
@@ -834,7 +796,7 @@ func insertOrUpdateGhUser(gc *GitHubCrawler, userID int64, user *github.User, or
 	}
 
 	if orgID != 0 {
-		if !linkGhUserToGhOrg(gc.db, ghUserID, orgID) {
+		if !g.linkGhUserToGhOrg(ghUserID, orgID) {
 			return false
 		}
 	}
@@ -844,8 +806,8 @@ func insertOrUpdateGhUser(gc *GitHubCrawler, userID int64, user *github.User, or
 
 // isUserLinkedToRepo checks whether a user is already linked to the given
 // repository.
-func isUserLinkedToRepo(db *sql.DB, userID, repoID int64) bool {
-	row := db.QueryRow(
+func (g *gitHubCrawler) isUserLinkedToRepo(userID, repoID int64) bool {
+	row := g.db.QueryRow(
 		`SELECT COUNT(*) AS total
 		 FROM users_repositories
 		 WHERE user_id = $1 AND repository_id = $2`, userID, repoID)
@@ -861,8 +823,8 @@ func isUserLinkedToRepo(db *sql.DB, userID, repoID int64) bool {
 
 // linkUserToRepo creates a many to many relationship between a user and a
 // repository.
-func linkUserToRepo(db *sql.DB, userID, repoID int64) bool {
-	if isUserLinkedToRepo(db, userID, repoID) {
+func (g *gitHubCrawler) linkUserToRepo(userID, repoID int64) bool {
+	if g.isUserLinkedToRepo(userID, repoID) {
 		return true
 	}
 
@@ -870,7 +832,7 @@ func linkUserToRepo(db *sql.DB, userID, repoID int64) bool {
 
 	query := genInsQuery("users_repositories", fields...)
 
-	_, err := db.Exec(query, userID, repoID)
+	_, err := g.db.Exec(query, userID, repoID)
 	if err != nil {
 		glog.Error(err)
 		return false
@@ -881,8 +843,8 @@ func linkUserToRepo(db *sql.DB, userID, repoID int64) bool {
 
 // isGhUserLinkedToGhOrg checks whether a github user is linked to the given
 // github organization or not.
-func isGhUserLinkedToGhOrg(db *sql.DB, ghUserID, orgID int64) bool {
-	row := db.QueryRow(
+func (g *gitHubCrawler) isGhUserLinkedToGhOrg(ghUserID, orgID int64) bool {
+	row := g.db.QueryRow(
 		`SELECT COUNT(*) AS total
 		 FROM gh_users_organizations
 		 WHERE gh_user_id = $1 AND gh_organization_id = $2`, ghUserID, orgID)
@@ -897,8 +859,8 @@ func isGhUserLinkedToGhOrg(db *sql.DB, ghUserID, orgID int64) bool {
 }
 
 // linkGhUserToGhOrg links a github user to the given github organization.
-func linkGhUserToGhOrg(db *sql.DB, ghUserID, orgID int64) bool {
-	if isGhUserLinkedToGhOrg(db, ghUserID, orgID) {
+func (g *gitHubCrawler) linkGhUserToGhOrg(ghUserID, orgID int64) bool {
+	if g.isGhUserLinkedToGhOrg(ghUserID, orgID) {
 		return true
 	}
 
@@ -906,7 +868,7 @@ func linkGhUserToGhOrg(db *sql.DB, ghUserID, orgID int64) bool {
 
 	query := genInsQuery("gh_users_organizations", fields...)
 
-	_, err := db.Exec(query, ghUserID, orgID)
+	_, err := g.db.Exec(query, ghUserID, orgID)
 	if err != nil {
 		glog.Error(err)
 		return false
@@ -918,7 +880,7 @@ func linkGhUserToGhOrg(db *sql.DB, ghUserID, orgID int64) bool {
 // fetchOrganization fetches information about a github organization.
 // args expects 1 value:
 // - orgName: the organization name
-func fetchOrganization(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
+func (g *gitHubCrawler) fetchOrganization(args ...interface{}) (interface{}, error) {
 	if len(args) != 1 {
 		glog.Error("invalid number of arguments")
 		return nil, errInvalidArgs
@@ -933,10 +895,10 @@ func fetchOrganization(gc *GitHubCrawler, args ...interface{}) (interface{}, err
 		return nil, errInvalidParamType
 	}
 
-	org, resp, err := gc.client.Organizations.Get(orgName)
+	org, resp, err := g.client.Organizations.Get(orgName)
 	if err != nil {
 		glog.Error(err)
-		return nil, genAPICallFuncError(resp, err)
+		return nil, g.genAPICallFuncError(resp, err)
 	}
 
 	return org, nil
@@ -945,7 +907,7 @@ func fetchOrganization(gc *GitHubCrawler, args ...interface{}) (interface{}, err
 // fetchUser fetches information about a user.
 // args expects 1 value:
 // - username: the user login name
-func fetchUser(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
+func (g *gitHubCrawler) fetchUser(args ...interface{}) (interface{}, error) {
 	if len(args) != 1 {
 		glog.Error("invalid number of arguments")
 		return nil, errInvalidArgs
@@ -960,10 +922,10 @@ func fetchUser(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
 		return nil, errInvalidParamType
 	}
 
-	user, resp, err := gc.client.Users.Get(username)
+	user, resp, err := g.client.Users.Get(username)
 	if err != nil {
 		glog.Error(err)
-		return nil, genAPICallFuncError(resp, err)
+		return nil, g.genAPICallFuncError(resp, err)
 	}
 
 	return user, nil
@@ -976,7 +938,7 @@ func fetchUser(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
 // - repoName:  the repository name
 //
 // It returns a list of users.
-func fetchContributors(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
+func (g *gitHubCrawler) fetchContributors(args ...interface{}) (interface{}, error) {
 	if len(args) != 2 {
 		glog.Error("invalid number of arguments")
 		return nil, errInvalidArgs
@@ -1000,10 +962,10 @@ func fetchContributors(gc *GitHubCrawler, args ...interface{}) (interface{}, err
 		return nil, errInvalidParamType
 	}
 
-	users, resp, err := gc.client.Repositories.ListContributors(owner, repoName, nil)
+	users, resp, err := g.client.Repositories.ListContributors(owner, repoName, nil)
 	if err != nil {
 		glog.Error(err)
-		return nil, genAPICallFuncError(resp, err)
+		return nil, g.genAPICallFuncError(resp, err)
 	}
 
 	return users, nil
@@ -1015,7 +977,7 @@ func fetchContributors(gc *GitHubCrawler, args ...interface{}) (interface{}, err
 // - orgName: the organization name
 //
 // It returns a list of users.
-func fetchOrganizationMembers(gc *GitHubCrawler, args ...interface{}) (interface{}, error) {
+func (g *gitHubCrawler) fetchOrganizationMembers(args ...interface{}) (interface{}, error) {
 	if len(args) != 1 {
 		glog.Error("invalid number of arguments")
 		return nil, errInvalidArgs
@@ -1030,107 +992,17 @@ func fetchOrganizationMembers(gc *GitHubCrawler, args ...interface{}) (interface
 		return nil, errInvalidParamType
 	}
 
-	users, resp, err := gc.client.Organizations.ListMembers(orgName, nil)
+	users, resp, err := g.client.Organizations.ListMembers(orgName, nil)
 	if err != nil {
 		glog.Error(err)
-		return nil, genAPICallFuncError(resp, err)
+		return nil, g.genAPICallFuncError(resp, err)
 	}
 
 	return users, nil
 }
 
-// genInsQuery generates a query string for an insertion in the database.
-func genInsQuery(tableName string, fields ...string) string {
-	var buf bytes.Buffer
-
-	buf.WriteString(fmt.Sprintf("INSERT INTO %s(%s)\n",
-		tableName, strings.Join(fields, ",")))
-	buf.WriteString("VALUES(")
-
-	for ind := range fields {
-		if ind > 0 {
-			buf.WriteString(",")
-		}
-
-		buf.WriteString(fmt.Sprintf("$%d", ind+1))
-	}
-
-	buf.WriteString(")\n")
-
-	return buf.String()
-}
-
-// genUpdateQuery generates a query string for an update of fields in the
-// database.
-func genUpdateQuery(tableName string, id int, fields ...string) string {
-	var buf bytes.Buffer
-
-	buf.WriteString(fmt.Sprintf("UPDATE %s\n", tableName))
-	buf.WriteString("SET ")
-
-	for ind, field := range fields {
-		if ind > 0 {
-			buf.WriteString(",")
-		}
-
-		buf.WriteString(fmt.Sprintf("%s=$%d", field, ind+1))
-	}
-
-	buf.WriteString(fmt.Sprintf("WHERE id=%d\n", id))
-
-	return buf.String()
-
-}
-
-// formatTimestamp formats a github.Timestamp to a string suitable to use
-// as a timestamp with timezone PostgreSQL data type
-func formatTimestamp(timeStamp *github.Timestamp) string {
-	timeFormat := time.RFC3339
-	if timeStamp == nil {
-		glog.Error("'timeStamp' arg given is nil")
-		t := time.Time{}
-		return t.Format(timeFormat)
-	}
-	return timeStamp.Format(timeFormat)
-}
-
-// isLanguageWanted checks if language(s) is in the list of wanted
-// languages.
-func isLanguageWanted(suppLangs []string, prjLangs interface{}) (bool, error) {
-	if prjLangs == nil {
-		return false, nil
-	}
-
-	switch prjLangs.(type) {
-	case map[string]int:
-		langs := prjLangs.(map[string]int)
-		for k := range langs {
-			for _, v := range suppLangs {
-				if strings.EqualFold(k, v) {
-					return true, nil
-				}
-			}
-		}
-	case *string:
-		lang := prjLangs.(*string)
-		if lang == nil {
-			return false, nil
-		}
-
-		for _, sl := range suppLangs {
-			if sl == *lang {
-				return true, nil
-			}
-		}
-	default:
-		return false, errors.New("isLanguageSupported: invalid prjLangs type")
-	}
-
-	return false, nil
-}
-
 // genAPICallFuncError creates an error base on the http response.
-func genAPICallFuncError(resp *github.Response, err error) error {
+func (g *gitHubCrawler) genAPICallFuncError(resp *github.Response, err error) error {
 	if resp == nil {
 		glog.Error("'resp' arg given is nil")
 		if err != nil {
@@ -1151,49 +1023,4 @@ func genAPICallFuncError(resp *github.Response, err error) error {
 	}
 
 	return err
-}
-
-// verifyRepo checks all essential fields of a Repository structure for nil
-// values. An error is returned if one of the essential field is nil.
-func verifyRepo(repo *github.Repository) error {
-	if repo == nil {
-		return newInvalidStructError("verifyRepo: repo is nil")
-	}
-
-	var err *invalidStructError
-	if repo.ID == nil {
-		err = newInvalidStructError("verifyRepo: contains nil fields:").AddField("ID")
-	} else {
-		err = newInvalidStructError(fmt.Sprintf("verifyRepo: repo #%d contains nil fields: ", *repo.ID))
-	}
-
-	if repo.Name == nil {
-		err.AddField("Name")
-	}
-
-	if repo.Language == nil {
-		err.AddField("Language")
-	}
-
-	if repo.CloneURL == nil {
-		err.AddField("CloneURL")
-	}
-
-	if repo.Owner == nil {
-		err.AddField("Owner")
-	} else {
-		if repo.Owner.Login == nil {
-			err.AddField("Owner.Login")
-		}
-	}
-
-	if repo.Fork == nil {
-		err.AddField("Fork")
-	}
-
-	if err.FieldsLen() > 0 {
-		return err
-	}
-
-	return nil
 }
