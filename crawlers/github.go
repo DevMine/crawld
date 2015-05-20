@@ -1047,7 +1047,7 @@ func genInsQuery(tableName string, fields ...string) string {
 		tableName, strings.Join(fields, ",")))
 	buf.WriteString("VALUES(")
 
-	for ind, _ := range fields {
+	for ind := range fields {
 		if ind > 0 {
 			buf.WriteString(",")
 		}
@@ -1104,7 +1104,7 @@ func isLanguageWanted(suppLangs []string, prjLangs interface{}) (bool, error) {
 	switch prjLangs.(type) {
 	case map[string]int:
 		langs := prjLangs.(map[string]int)
-		for k, _ := range langs {
+		for k := range langs {
 			for _, v := range suppLangs {
 				if strings.EqualFold(k, v) {
 					return true, nil
