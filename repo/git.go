@@ -10,8 +10,8 @@ import (
 	g2g "github.com/libgit2/git2go"
 )
 
-// GitRepo implements the Repo interface.
-type GitRepo struct {
+// gitRepo implements the Repo interface.
+type gitRepo struct {
 	absPath string
 	r       *g2g.Repository
 	url     string
@@ -19,26 +19,26 @@ type GitRepo struct {
 
 // newGitRepo creates a new GitRepo. GitRepo implements the Repo interface
 // for a git repository.
-func newGitRepo(absPath string, url string) (*GitRepo, error) {
+func newGitRepo(absPath string, url string) (*gitRepo, error) {
 	// attempt opening the repository as it may already exist
 	// ignore if it fails since it will be created at first call to Clone()
 	r, _ := g2g.OpenRepository(absPath)
 
-	return &GitRepo{absPath: absPath, url: url, r: r}, nil
+	return &gitRepo{absPath: absPath, url: url, r: r}, nil
 }
 
 // AbsPath implements the AbsPath() method of the Repo interface.
-func (gr GitRepo) AbsPath() string {
+func (gr gitRepo) AbsPath() string {
 	return gr.absPath
 }
 
 // URL implements the URL() method of the Repo interface.
-func (gr GitRepo) URL() string {
+func (gr gitRepo) URL() string {
 	return gr.url
 }
 
 // Clone implements the Clone() method of the Repo interface.
-func (gr GitRepo) Clone() error {
+func (gr gitRepo) Clone() error {
 	var err error
 	gr.r, err = g2g.Clone(gr.url, gr.absPath, &g2g.CloneOptions{})
 	if err != nil {
@@ -51,7 +51,7 @@ func (gr GitRepo) Clone() error {
 // Update implements the Update() method of the Repo interface.
 // It fetches changes from remote and performs a fast-forward on the local
 // branch so as to match the remote branch.
-func (gr GitRepo) Update() error {
+func (gr gitRepo) Update() error {
 	origin, err := gr.r.LookupRemote("origin")
 	if err != nil {
 		return err
