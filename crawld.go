@@ -184,16 +184,12 @@ func main() {
 	var cs []crawlers.Crawler
 
 	for _, crawlerConfig := range cfg.Crawlers {
-		switch crawlerConfig.Type {
-		case "github":
-			glog.Info("github crawler selected")
-			gh, err := crawlers.NewGitHubCrawler(crawlerConfig, db)
-			if err != nil {
-				fatal(err)
-			}
-
-			cs = append(cs, gh)
+		c, err := crawlers.New(crawlerConfig, db)
+		if err != nil {
+			fatal(err)
 		}
+
+		cs = append(cs, c)
 	}
 
 	crawlingInterval, err := time.ParseDuration(cfg.CrawlingTimeInterval)

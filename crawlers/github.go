@@ -88,8 +88,8 @@ func (ts *tokenSource) Token() (*oauth2.Token, error) {
 	return token, nil
 }
 
-// NewGitHubCrawler creates a new GitHub crawler.
-func NewGitHubCrawler(cfg config.CrawlerConfig, db *sql.DB) (*GitHubCrawler, error) {
+// newGitHubCrawler creates a new GitHub crawler.
+func newGitHubCrawler(cfg config.CrawlerConfig, db *sql.DB) (*GitHubCrawler, error) {
 	if db == nil {
 		return nil, errors.New("database session cannot be nil")
 	}
