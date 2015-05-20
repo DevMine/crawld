@@ -26,21 +26,20 @@ type Repo interface {
 	URL() string
 }
 
-// New creates a new repository. vcs is corresponds to the VCS type
+// New creates a new repository. vcsType corresponds to the VCS type
 // (currently, only 'git' is supported) whereas clonePath corresponds to the
 // absolute path to/for the repository on disk and cloneURL is the URL used
 // for cloning/updating the repository.
-func New(vcs, clonePath string, cloneURL string) (Repo, error) {
+func New(vcsType, clonePath string, cloneURL string) (Repo, error) {
 	var newRepo Repo
 	var err error
 
-	switch vcs {
+	switch vcsType {
 	case "git":
 		newRepo, err = newGitRepo(clonePath, cloneURL)
 	default:
-		return nil, errors.New("unsupported vcs repository type")
+		return nil, errors.New("unsupported vcs repository type: " + vcsType)
 	}
-
 	if err != nil {
 		return nil, err
 	}
