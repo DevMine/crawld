@@ -40,6 +40,7 @@ func (gr gitRepo) URL() string {
 // Clone implements the Clone() method of the Repo interface.
 func (gr gitRepo) Clone() error {
 	var err error
+
 	gr.r, err = g2g.Clone(gr.url, gr.absPath, &g2g.CloneOptions{})
 	if err != nil {
 		return g2gErrorToRepoError(err)
@@ -52,6 +53,15 @@ func (gr gitRepo) Clone() error {
 // It fetches changes from remote and performs a fast-forward on the local
 // branch so as to match the remote branch.
 func (gr gitRepo) Update() error {
+	var err error
+
+	if gr.r == nil {
+		gr.r, err = g2g.OpenRepository(gr.absPath)
+		if err != nil {
+			return g2gErrorToRepoError(err)
+		}
+	}
+
 	origin, err := gr.r.LookupRemote("origin")
 	if err != nil {
 		return g2gErrorToRepoError(err)
