@@ -42,7 +42,7 @@ func (gr gitRepo) Clone() error {
 	var err error
 	gr.r, err = g2g.Clone(gr.url, gr.absPath, &g2g.CloneOptions{})
 	if err != nil {
-		return err
+		return g2gErrorToRepoError(err)
 	}
 
 	return nil
@@ -54,17 +54,16 @@ func (gr gitRepo) Clone() error {
 func (gr gitRepo) Update() error {
 	origin, err := gr.r.LookupRemote("origin")
 	if err != nil {
-		return err
+		return g2gErrorToRepoError(err)
 	}
 
-	err = origin.Fetch([]string{}, nil, "")
-	if err != nil {
-		return err
+	if err = origin.Fetch([]string{}, nil, ""); err != nil {
+		return g2gErrorToRepoError(err)
 	}
 
 	ref, err := gr.r.Head()
 	if err != nil {
-		return err
+		return g2gErrorToRepoError(err)
 	}
 
 	if !ref.IsBranch() {
@@ -73,18 +72,17 @@ func (gr gitRepo) Update() error {
 
 	remoteRef, err := ref.Branch().Upstream()
 	if err != nil {
-		return err
+		return g2gErrorToRepoError(err)
 	}
-	_, err = ref.SetTarget(remoteRef.Target(), nil, "pull: Fast-forward")
-	if err != nil {
-		return err
+	if _, err = ref.SetTarget(remoteRef.Target(), nil, "pull: Fast-forward"); err != nil {
+		return g2gErrorToRepoError(err)
 	}
 
 	var checkoutOpts g2g.CheckoutOpts
 	checkoutOpts.Strategy = g2g.CheckoutForce
 
 	if err = gr.r.CheckoutHead(&checkoutOpts); err != nil {
-		return errors.New("failed to checkout new HEAD")
+		return g2gErrorToRepoError(err)
 	}
 
 	return nil

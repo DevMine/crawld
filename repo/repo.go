@@ -13,10 +13,14 @@ import (
 // others..
 type Repo interface {
 	// Clone clones a repository into a new directory.
+	// Clone must return ErrNetworkUnreachable in case of connectivity
+	// problems and ErrNoSpace in case of storage space problems.
 	Clone() error
 
 	// Update fetches the latest changes from a repository, using the
 	// default branch.
+	// Update must return ErrNetworkUnreachable in case of connectivity
+	// problems and ErrNoSpace in case of storage space problems.
 	Update() error
 
 	// AbsPath gives the absolute path to the repository on disk.

@@ -46,6 +46,24 @@ func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 }
 
 func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration) {
+	waitOnRepoError := func(err error) error {
+		if err == repo.ErrNetwork || err == repo.ErrNoSpace {
+			// there is no point trying to continue running right now
+			// hence, wait a moment and try again
+			glog.Error("critical error encountered (" + err.Error() + "), waiting for 1 hour before resuming")
+			time.Sleep(time.Hour)
+			return nil
+		}
+		return err
+	}
+
+	clone := func(r repo.Repo) {
+		glog.Infof("cloning %s into %s\n", r.URL(), r.AbsPath())
+		if err := waitOnRepoError(r.Clone()); err != nil {
+			glog.Errorf("impossible to clone %s in %s ("+err.Error()+") skipping", r.URL(), r.AbsPath())
+		}
+	}
+
 	for {
 		glog.Info("starting the repositories fetcher")
 
@@ -56,12 +74,19 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 
 		for _, r := range repos {
 			if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
-				glog.Infof("cloning %s into %s\n", r.URL(), r.AbsPath())
-				_ = r.Clone()
+				clone(r)
 				continue
 			}
 			glog.Infof("updating %s\n", r.AbsPath())
-			_ = r.Update()
+			if err := waitOnRepoError(r.Update()); err != nil {
+				// delete and reclone then
+				glog.Warningf("impossible to update %s ("+err.Error()+") => attempting to re-clone", r.AbsPath())
+				if err2 := os.RemoveAll(r.AbsPath()); err2 != nil {
+					glog.Errorf("cannot remove %s("+err2.Error()+")", r.AbsPath())
+					continue
+				}
+				clone(r)
+			}
 		}
 
 		glog.Infof("waiting for %v before re-starting the fetcher.\n", fetchInterval)
