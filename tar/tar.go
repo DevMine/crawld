@@ -157,29 +157,35 @@ func Extract(destPath, archivePath string) error {
 		case mode&os.ModeSymlink != 0:
 			os.Symlink(hdr.Linkname, filepath.Join(destPath, hdr.Name))
 		default: // consider it a regular file
-			f, err := os.Create(filepath.Join(destPath, hdr.Name))
-			if err != nil {
-				return err
+			createFile := func() error {
+				f, err := os.Create(filepath.Join(destPath, hdr.Name))
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+
+				buf := make([]byte, 8192)
+				for {
+					nr, err := tr.Read(buf)
+					if err == io.EOF {
+						return nil
+					}
+					if err != nil {
+						return err
+					}
+
+					nw, err := f.Write(buf[:nr])
+					if err != nil {
+						return err
+					}
+					if nr != nw {
+						return errors.New("write error: not enough (or too many) bytes written")
+					}
+				}
 			}
-			defer f.Close()
 
-			buf := make([]byte, 8192)
-			for {
-				nr, err := tr.Read(buf)
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return err
-				}
-
-				nw, err := f.Write(buf[:nr])
-				if err != nil {
-					return err
-				}
-				if nr != nw {
-					return errors.New("write error: not enough (or too many) bytes written")
-				}
+			if err = createFile(); err != nil {
+				return err
 			}
 		}
 	}
