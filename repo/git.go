@@ -97,3 +97,11 @@ func (gr gitRepo) Update() error {
 
 	return nil
 }
+
+// Cleanup implements the Cleanup() method of the Repo interface.
+func (gr gitRepo) Cleanup() error {
+	if gr.r != nil {
+		gr.r.Free()
+	}
+	return nil
+}

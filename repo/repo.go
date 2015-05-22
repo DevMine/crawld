@@ -28,6 +28,10 @@ type Repo interface {
 
 	// URL gives the clone URL of the repository.
 	URL() string
+
+	// Cleanup shall be called when done using the Repo. It will take
+	// care of closing any open files and the usual housekeeping.
+	Cleanup() error
 }
 
 // New creates a new repository. vcsType corresponds to the VCS type
