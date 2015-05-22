@@ -31,6 +31,15 @@ type Config struct {
 	// TarRepos tells whether repositories shall be stored as tar archives.
 	TarRepos bool `json:"tar_repositories"`
 
+	// MaxFetcherWorkers defines the maximum number of workers for the
+	// repositories fetching task.
+	// It defaults to 1 but if your machine has good I/O throughput and a good
+	// CPU, you probably want to increase this conservative value for
+	// performance reasons. Note that fetching is I/O and networked bound
+	// more than CPU bound and hence you probably do not want to increase this
+	// value too much.
+	MaxFetcherWorkers uint `json:"max_fetcher_workers"`
+
 	// Crawlers is a group of crawlers configuration.
 	Crawlers []CrawlerConfig `json:"crawlers"`
 
@@ -133,6 +142,10 @@ func ReadConfig(path string) (*Config, error) {
 
 	if err := cfg.verify(); err != nil {
 		return nil, err
+	}
+
+	if cfg.MaxFetcherWorkers < 1 {
+		cfg.MaxFetcherWorkers = 1
 	}
 
 	return cfg, nil

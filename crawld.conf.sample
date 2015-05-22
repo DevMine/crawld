@@ -15,6 +15,7 @@
         "ruby"
     ],
     "tar_repositories": true,
+    "max_fetcher_workers": 4,
     "crawlers": [
         {
             "type": "github",

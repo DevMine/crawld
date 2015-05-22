@@ -66,7 +66,7 @@ func fetcherCall(fct func() error) error {
 	}
 }
 
-func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration, useTar bool) {
+func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration, useTar bool, maxWorkers uint) {
 	clone := func(r repo.Repo) {
 		glog.Infof("cloning %s into %s\n", r.URL(), r.AbsPath())
 		if err := fetcherCall(r.Clone); err != nil {
@@ -101,38 +101,54 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 			fatal(err)
 		}
 
+		tasks := make(chan repo.Repo, len(repos))
+		var wg sync.WaitGroup
+
 		for _, r := range repos {
-			// check if we have a tar archive of the repository in which case
-			// we only need to update but extract apriori and recreate the tar
-			// archive afterwards
-			archive := r.AbsPath() + ".tar"
-			if _, err = os.Stat(archive); err == nil {
-				if err = tar.ExtractInPlace(archive); err != nil {
-					glog.Warning("impossible to extract the tar archive (" + archive + ")" +
-						", cannot update the repository: " + err.Error())
-					// attempt to remove the eventual mess
-					_ = os.Remove(archive)
-					_ = os.RemoveAll(r.AbsPath())
-					clone(r)
-				} else {
-					update(r)
-				}
-			} else {
-				if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
-					clone(r)
-				} else {
-					update(r)
-				}
-			}
-
-			if useTar {
-				createArchive(r.AbsPath())
-			}
-
-			if err = r.Cleanup(); err != nil {
-				glog.Warning(err)
-			}
+			tasks <- r
 		}
+
+		for w := uint(0); w < maxWorkers; w++ {
+			wg.Add(1)
+			go func() {
+				for r := range tasks {
+					// check if we have a tar archive of the repository in which case
+					// we only need to update but extract apriori and recreate the tar
+					// archive afterwards
+					archive := r.AbsPath() + ".tar"
+					if _, err = os.Stat(archive); err == nil {
+						if err = tar.ExtractInPlace(archive); err != nil {
+							glog.Warning("impossible to extract the tar archive (" + archive + ")" +
+								", cannot update the repository: " + err.Error())
+							// attempt to remove the eventual mess
+							_ = os.Remove(archive)
+							_ = os.RemoveAll(r.AbsPath())
+							clone(r)
+						} else {
+							update(r)
+						}
+					} else {
+						if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
+							clone(r)
+						} else {
+							update(r)
+						}
+					}
+
+					if useTar {
+						createArchive(r.AbsPath())
+					}
+
+					if err = r.Cleanup(); err != nil {
+						glog.Warning(err)
+					}
+				}
+				wg.Done()
+			}()
+		}
+
+		close(tasks)
+		wg.Wait()
 
 		glog.Infof("waiting for %v before re-starting the fetcher.\n", fetchInterval)
 		<-time.After(fetchInterval)
@@ -283,7 +299,7 @@ func main() {
 	// start the repo puller worker
 	if !*disableFetcher {
 		wg.Add(1)
-		go repoWorker(db, cfg.FetchLanguages, cfg.CloneDir, fetchInterval, cfg.TarRepos)
+		go repoWorker(db, cfg.FetchLanguages, cfg.CloneDir, fetchInterval, cfg.TarRepos, cfg.MaxFetcherWorkers)
 	}
 
 	// wait until the cows come home saint
