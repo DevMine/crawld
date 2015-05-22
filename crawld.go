@@ -108,7 +108,7 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 			archive := r.AbsPath() + ".tar"
 			if _, err = os.Stat(archive); err == nil {
 				if err = tar.ExtractInPlace(archive); err != nil {
-					glog.Warning("impossible to extract the tar archive (" + r.AbsPath() + ".tar )" +
+					glog.Warning("impossible to extract the tar archive (" + archive + ")" +
 						", cannot update the repository: " + err.Error())
 					// attempt to remove the eventual mess
 					_ = os.Remove(archive)
