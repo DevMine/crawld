@@ -17,6 +17,7 @@ import (
 var (
 	dirPath     = "./testdata/parent"
 	archivePath = dirPath + ".tar"
+	tarArchive  = "./testdata/tar-archive"
 
 	parentPath      = dirPath
 	barPath         = parentPath + "/bar.txt"
@@ -51,7 +52,11 @@ func TestCreateExtract(t *testing.T) {
 }
 
 func TestCreateExtractInPlace(t *testing.T) {
-	if err := CreateInPlace(archivePath, dirPath); err != nil {
+	if err := CreateInPlace(dirPath + ".tar"); err == nil {
+		t.Fatal(errors.New("error expected when given a directory path with an extension"))
+	}
+
+	if err := CreateInPlace(dirPath); err != nil {
 		t.Fatal(err)
 	}
 
@@ -59,12 +64,16 @@ func TestCreateExtractInPlace(t *testing.T) {
 		t.Error(errors.New("directory not removed: " + dirPath))
 	}
 
-	if err := ExtractInPlace(filepath.Dir(dirPath), archivePath); err != nil {
+	if err := ExtractInPlace(archivePath); err != nil {
 		t.Fatal(err)
 	}
 
 	if _, err := os.Stat(archivePath); err == nil {
 		t.Error(errors.New("archive not removed: " + archivePath))
+	}
+
+	if err := ExtractInPlace(tarArchive); err == nil {
+		t.Fatal(errors.New("error expected when given a tar archive without the .tar extension"))
 	}
 }
 

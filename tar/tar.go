@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Create creates a tar archive from a directory.
@@ -102,8 +103,14 @@ func Create(destPath, dirPath string) error {
 
 // CreateInPlace creates a tar archive from a directory in place which means
 // that the original directory is removed after the tar archive is created.
-func CreateInPlace(destPath, dirPath string) error {
-	if err := Create(destPath, dirPath); err != nil {
+// The .tar suffix will be added to dirPath once the archive is created.
+// Note that dirPath is not expected to have a file extension as it is supposed
+// to be a directory.
+func CreateInPlace(dirPath string) error {
+	if ext := filepath.Ext(dirPath); ext != "" {
+		return errors.New("dirPath does not expect an extension (" + ext + ")")
+	}
+	if err := Create(dirPath+".tar", dirPath); err != nil {
 		return err
 	}
 	return os.RemoveAll(dirPath)
@@ -183,7 +190,13 @@ func Extract(destPath, archivePath string) error {
 // ExtractInPlace extracts a tar archive, in place, given its path. The
 // original tar archive is removed after extraction and only its content
 // remains.
-func ExtractInPlace(destPath, archivePath string) error {
+// Note that archivePath is expected to have a file extension.
+func ExtractInPlace(archivePath string) error {
+	ext := filepath.Ext(archivePath)
+	if ext == "" {
+		return errors.New("expected a file extension (" + archivePath + ")")
+	}
+	destPath := filepath.Dir(strings.TrimSuffix(archivePath, ext))
 	if err := Extract(destPath, archivePath); err != nil {
 		return err
 	}
