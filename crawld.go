@@ -23,6 +23,7 @@ import (
 	"github.com/DevMine/crawld/config"
 	"github.com/DevMine/crawld/crawlers"
 	"github.com/DevMine/crawld/repo"
+	"github.com/DevMine/crawld/tar"
 )
 
 func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
@@ -65,7 +66,7 @@ func fetcherCall(fct func() error) error {
 	}
 }
 
-func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration) {
+func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration, useTar bool) {
 	clone := func(r repo.Repo) {
 		glog.Infof("cloning %s into %s\n", r.URL(), r.AbsPath())
 		if err := fetcherCall(r.Clone); err != nil {
@@ -73,28 +74,63 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 		}
 	}
 
+	update := func(r repo.Repo) {
+		glog.Infof("updating %s\n", r.AbsPath())
+		if err := fetcherCall(r.Update); err != nil {
+			// delete and reclone then
+			glog.Warningf("impossible to update %s ("+err.Error()+") => attempting to re-clone", r.AbsPath())
+			if err2 := os.RemoveAll(r.AbsPath()); err2 != nil {
+				glog.Errorf("cannot remove %s("+err2.Error()+")", r.AbsPath())
+			} else {
+				clone(r)
+			}
+		}
+	}
+
+	createArchive := func(path string) {
+		if err := tar.CreateInPlace(path); err != nil {
+			glog.Error("impossible to create the tar archive (" + path + ".tar ): " +
+				err.Error())
+		}
+	}
+
 	for {
 		glog.Info("starting the repositories fetcher")
-
 		repos, err := getAllRepos(db, langs, basePath)
 		if err != nil {
 			fatal(err)
 		}
 
 		for _, r := range repos {
-			if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
-				clone(r)
-				continue
-			}
-			glog.Infof("updating %s\n", r.AbsPath())
-			if err := fetcherCall(r.Update); err != nil {
-				// delete and reclone then
-				glog.Warningf("impossible to update %s ("+err.Error()+") => attempting to re-clone", r.AbsPath())
-				if err2 := os.RemoveAll(r.AbsPath()); err2 != nil {
-					glog.Errorf("cannot remove %s("+err2.Error()+")", r.AbsPath())
-					continue
+			// check if we have a tar archive of the repository in which case
+			// we only need to update but extract apriori and recreate the tar
+			// archive afterwards
+			archive := r.AbsPath() + ".tar"
+			if _, err = os.Stat(archive); err == nil {
+				if err = tar.ExtractInPlace(archive); err != nil {
+					glog.Warning("impossible to extract the tar archive (" + r.AbsPath() + ".tar )" +
+						", cannot update the repository: " + err.Error())
+					// attempt to remove the eventual mess
+					_ = os.Remove(archive)
+					_ = os.RemoveAll(r.AbsPath())
+					clone(r)
+				} else {
+					update(r)
 				}
-				clone(r)
+			} else {
+				if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
+					clone(r)
+				} else {
+					update(r)
+				}
+			}
+
+			if useTar {
+				createArchive(r.AbsPath())
+			}
+
+			if err = r.Cleanup(); err != nil {
+				glog.Warning(err)
 			}
 		}
 
@@ -247,7 +283,7 @@ func main() {
 	// start the repo puller worker
 	if !*disableFetcher {
 		wg.Add(1)
-		go repoWorker(db, cfg.FetchLanguages, cfg.CloneDir, fetchInterval)
+		go repoWorker(db, cfg.FetchLanguages, cfg.CloneDir, fetchInterval, cfg.TarRepos)
 	}
 
 	// wait until the cows come home saint

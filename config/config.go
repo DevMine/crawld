@@ -28,6 +28,9 @@ type Config struct {
 	// CloneDir is the path to the folder where all repositories are cloned.
 	CloneDir string `json:"clone_dir"`
 
+	// TarRepos tells whether repositories shall be stored as tar archives.
+	TarRepos bool `json:"tar_repositories"`
+
 	// Crawlers is a group of crawlers configuration.
 	Crawlers []CrawlerConfig `json:"crawlers"`
 
