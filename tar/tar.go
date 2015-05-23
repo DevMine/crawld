@@ -164,24 +164,10 @@ func Extract(destPath, archivePath string) error {
 				}
 				defer f.Close()
 
-				buf := make([]byte, 8192)
-				for {
-					nr, err := tr.Read(buf)
-					if err == io.EOF {
-						return nil
-					}
-					if err != nil {
-						return err
-					}
-
-					nw, err := f.Write(buf[:nr])
-					if err != nil {
-						return err
-					}
-					if nr != nw {
-						return errors.New("write error: not enough (or too many) bytes written")
-					}
+				if _, err := io.Copy(f, tr); err != nil {
+					return err
 				}
+				return nil
 			}
 
 			if err = createFile(); err != nil {
