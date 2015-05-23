@@ -46,13 +46,18 @@ func Create(destPath, dirPath string) error {
 		switch {
 		// symlinks need special treatment
 		case mode&os.ModeSymlink != 0:
-			link, err = filepath.EvalSymlinks(path)
-			if err != nil {
-				return err
+			linkDest, _ := os.Readlink(path)
+			if link, err = filepath.EvalSymlinks(path); err == nil {
+				if rel, err := filepath.Rel(filepath.Dir(path), link); err == nil {
+					link = rel
+				} else {
+					link = linkDest
+				}
+			} else {
+				// it may be a broken symlink, simply attempt to read it
+				link = linkDest
 			}
-			if rel, err := filepath.Rel(filepath.Dir(path), link); err == nil {
-				link = rel
-			}
+
 		// we don't want to tar these sort of files
 		case mode&(os.ModeNamedPipe|os.ModeSocket|os.ModeDevice) != 0:
 			return nil

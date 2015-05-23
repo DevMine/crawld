@@ -20,14 +20,16 @@ var (
 	tarArchive  = "./testdata/tar-archive"
 	fooIOPath   = "./testdata/foo.io"
 
-	parentPath      = dirPath
-	barPath         = parentPath + "/bar.txt"
-	foodirPath      = parentPath + "/foodir"
-	bardirPath      = foodirPath + "/bardir"
-	bazPath         = bardirPath + "/baz.txt"
-	someContentPath = foodirPath + "/some-content.txt"
-	symlinkDirPath  = parentPath + "/symlink-dir"
-	symlinkFilePath = parentPath + "/symlink-file"
+	parentPath        = dirPath
+	barPath           = parentPath + "/bar.txt"
+	foodirPath        = parentPath + "/foodir"
+	bardirPath        = foodirPath + "/bardir"
+	bazPath           = bardirPath + "/baz.txt"
+	someContentPath   = foodirPath + "/some-content.txt"
+	symlinkDirPath    = parentPath + "/symlink-dir"
+	symlinkFilePath   = parentPath + "/symlink-file"
+	brokenSymlinkPath = parentPath + "/broken-symlink"
+	voidPath          = parentPath + "/void"
 )
 
 func TestCreateExtract(t *testing.T) {
@@ -133,12 +135,8 @@ func testFiles() error {
 		return errors.New("symlink does not point to correct file:\n   actual => " +
 			dest + "\n expected => " + filepath.Clean(barPath))
 	}
-	dest, err = os.Readlink(bazPath)
-	if err != nil {
+	if err = checkSymlinkDest("../../bar.txt", bazPath); err != nil {
 		return err
-	}
-	if dest != "../../bar.txt" {
-		return errors.New("incorrect symlink path for " + bazPath)
 	}
 
 	someContentChecksum := "258622b1688250cb619f3c9ccaefb7eb"
@@ -159,12 +157,8 @@ func testFiles() error {
 		return errors.New("symlink does not point to correct file:\n   actual => " +
 			dest + "\n expected => " + filepath.Clean(foodirPath))
 	}
-	dest, err = os.Readlink(symlinkDirPath)
-	if err != nil {
+	if err = checkSymlinkDest("foodir", symlinkDirPath); err != nil {
 		return err
-	}
-	if dest != "foodir" {
-		return errors.New("incorrect symlink path for " + symlinkDirPath)
 	}
 
 	dest, err = filepath.EvalSymlinks(symlinkFilePath)
@@ -175,12 +169,28 @@ func testFiles() error {
 		return errors.New("symlink does not point to correct file:\n   actual => " +
 			dest + "\n expected => " + filepath.Clean(barPath))
 	}
-	dest, err = os.Readlink(symlinkFilePath)
+	if err = checkSymlinkDest("bar.txt", symlinkFilePath); err != nil {
+		return err
+	}
+
+	if err = checkSymlinkDest("void", brokenSymlinkPath); err != nil {
+		return err
+	}
+
+	if err = checkSymlinkDest("/void", voidPath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func checkSymlinkDest(expDest, path string) error {
+	dest, err := os.Readlink(path)
 	if err != nil {
 		return err
 	}
-	if dest != "bar.txt" {
-		return errors.New("incorrect symlink path for " + symlinkFilePath)
+	if dest != expDest {
+		return errors.New("incorrect symlink path for: " + path + "; expected: " + expDest)
 	}
 
 	return nil
