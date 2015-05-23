@@ -133,6 +133,13 @@ func testFiles() error {
 		return errors.New("symlink does not point to correct file:\n   actual => " +
 			dest + "\n expected => " + filepath.Clean(barPath))
 	}
+	dest, err = os.Readlink(bazPath)
+	if err != nil {
+		return err
+	}
+	if dest != "../../bar.txt" {
+		return errors.New("incorrect symlink path for " + bazPath)
+	}
 
 	someContentChecksum := "258622b1688250cb619f3c9ccaefb7eb"
 	someContent, err := ioutil.ReadFile(someContentPath)
@@ -152,6 +159,13 @@ func testFiles() error {
 		return errors.New("symlink does not point to correct file:\n   actual => " +
 			dest + "\n expected => " + filepath.Clean(foodirPath))
 	}
+	dest, err = os.Readlink(symlinkDirPath)
+	if err != nil {
+		return err
+	}
+	if dest != "foodir" {
+		return errors.New("incorrect symlink path for " + symlinkDirPath)
+	}
 
 	dest, err = filepath.EvalSymlinks(symlinkFilePath)
 	if err != nil {
@@ -160,6 +174,13 @@ func testFiles() error {
 	if dest != filepath.Clean(barPath) {
 		return errors.New("symlink does not point to correct file:\n   actual => " +
 			dest + "\n expected => " + filepath.Clean(barPath))
+	}
+	dest, err = os.Readlink(symlinkFilePath)
+	if err != nil {
+		return err
+	}
+	if dest != "bar.txt" {
+		return errors.New("incorrect symlink path for " + symlinkFilePath)
 	}
 
 	return nil
