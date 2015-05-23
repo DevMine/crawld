@@ -104,12 +104,7 @@ func Create(destPath, dirPath string) error {
 // CreateInPlace creates a tar archive from a directory in place which means
 // that the original directory is removed after the tar archive is created.
 // The .tar suffix will be added to dirPath once the archive is created.
-// Note that dirPath is not expected to have a file extension as it is supposed
-// to be a directory.
 func CreateInPlace(dirPath string) error {
-	if ext := filepath.Ext(dirPath); ext != "" {
-		return errors.New("dirPath does not expect an extension (" + ext + ")")
-	}
 	if err := Create(dirPath+".tar", dirPath); err != nil {
 		return err
 	}

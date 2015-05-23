@@ -18,6 +18,7 @@ var (
 	dirPath     = "./testdata/parent"
 	archivePath = dirPath + ".tar"
 	tarArchive  = "./testdata/tar-archive"
+	fooIOPath   = "./testdata/foo.io"
 
 	parentPath      = dirPath
 	barPath         = parentPath + "/bar.txt"
@@ -52,6 +53,14 @@ func TestCreateExtract(t *testing.T) {
 }
 
 func TestCreateExtractInPlace(t *testing.T) {
+	if err := CreateInPlace(fooIOPath); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ExtractInPlace(fooIOPath + ".tar"); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := CreateInPlace(dirPath + ".tar"); err == nil {
 		t.Fatal(errors.New("error expected when given a directory path with an extension"))
 	}

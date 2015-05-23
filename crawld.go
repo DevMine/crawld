@@ -89,7 +89,7 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 
 	createArchive := func(path string) {
 		if err := tar.CreateInPlace(path); err != nil {
-			glog.Error("impossible to create the tar archive (" + path + ".tar ): " +
+			glog.Error("impossible to create tar archive (" + path + ".tar ): " +
 				err.Error())
 		}
 	}
