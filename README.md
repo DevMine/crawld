@@ -4,24 +4,27 @@
 [![GoDoc](http://godoc.org/github.com/DevMine/crawld?status.svg)](http://godoc.org/github.com/DevMine/crawld)
 [![GoWalker](http://img.shields.io/badge/doc-gowalker-blue.svg?style=flat)](https://gowalker.org/github.com/DevMine/crawld)
 
-`crawld` is a data crawler and source code repository fetcher.
+`crawld` is a metadata crawler and source code repository fetcher.
+Hence, `crawld` comprises two different parts: the crawlers and the fetcher.
 
-Currently, only a [GitHub](https://github.com) crawler is implemented but the
-architecture of `crawld` has been designed in a way such that new crawlers (for
-instance a [BitBucket](https://bitbucket.org/) crawler) can be added without
-hassle, regardless of the source code management system
-([git](http://git-scm.com/), [mercurial](http://mercurial.selenic.com/),
-[svn](http://subversion.apache.org/), ...).
+## Crawlers
 
-This crawler focuses on crawling repositories metadata and those of the users
-that contributed, or are directly related, to the repositories.
+`crawld` focuses on crawling repositories metadata and those of the users
+that contributed, or are directly related, to the repositories from code
+sharing platforms such as [GitHub](https://github.com).
+
+Only a GitHub crawler is currently implemented.
+However, the architecture of `crawld` has been designed in a way such that new
+crawlers (for instance a [BitBucket](https://bitbucket.org/) crawler) can be
+added without hassle.
 
 All of the collected metadata is stored into a
 [PostgreSQL](http://www.postgresql.org/) database. As `crawld` is designed to
-support several platforms, information common across them is stored in two
-tables: `users` and `repositories`. For the rest of the information, specific
-tables are created (`gh_repositories`, `gh_users` and `gh_organizations` for
-now) and relations are established with the `users` and `repositories` tables.
+be able to crawl several code sharing platforms, common information is stored
+in two tables: `users` and `repositories`. For the rest of the information,
+specific tables are created (`gh_repositories`, `gh_users` and
+`gh_organizations` for now) and relations are established with the `users` and
+`repositories` tables.
 
 The table below gives information about what is collected. Bear in mind that
 some information might be incomplete (for instance, if a user does not provide
@@ -47,12 +50,27 @@ Clone URL        | Description       | Email    | Bio                 | Avatar U
                  | Update date       |          |                     |
                  | Last push date    |          |                     |
 
-Besides crawling, `crawld` is also able to clone and update repositories, from
-their cloning URL stored into the database. Depending on the number of
-repositories you have in your database, this may required a fair amount of
-storage space.
+## Fetcher
+
+Aside from crawling metadata, `crawld` is able to clone and update
+repositories, using their clone URL stored into the database.
+
+Cloning and updating can be done regardless of the source code management
+system in use ([git](http://git-scm.com/),
+[mercurial](http://mercurial.selenic.com/),
+[svn](http://subversion.apache.org/), ...), however only a `git` fetcher is
+currently implemented.
+
+As source code repositories usually contain a lot of files, `crawld` has an
+option that allows storing source code repositories as tar archives which makes
+things easier for the file system shall you clone a huge number of
+repositories.
 
 ## Installation
+
+`crawld` uses `git2go`, a `ligit2` Go binding for its `git` operations. Hence,
+`libgit2` needs to be installed on your system unless you statically compile it
+with the `git2go` package.
 
 To install `crawld`, run this command in a terminal, assuming
 [Go](http://golang.org/) is installed:
@@ -62,8 +80,9 @@ To install `crawld`, run this command in a terminal, assuming
 Or you can download a binary for your platform from the DevMine project's
 [downloads page](http://devmine.ch/downloads).
 
-You also need to setup a [PostgreSQL](http://www.postgresql.org/) database. Look
-at the [README file](https://github.com/DevMine/crawld/blob/master/db/README.md)
+You also need to setup a [PostgreSQL](http://www.postgresql.org/) database.
+Look at the
+[README file](https://github.com/DevMine/crawld/blob/master/db/README.md)
 in the `db` sub-folder for details.
 
 ## Usage and configuration
@@ -92,6 +111,16 @@ needs. The configuration file has several sections:
    small time period here since the repositories fetcher cannot usually
    keep up with the crawlers and you likely want it to update/clone the
    repositories continuously.
+ * **fetch\_languages**: specify the list of languages the fetcher shall
+   restrict to. If left empty, all languages are considered.
+ * **tar\_repositories**: a boolean value indicating whether the repositories
+   shall be stored as tar archives or not.
+ * **max\_fetcher\_workers**: specify the maximum number of workers to use for
+   the fetching task. It defaults to 1 but if your machine has good I/O
+   throughput and a good CPU, you probably want to increase this conservative
+   value for performance reasons. Note that fetching is I/O and networked bound
+   more than CPU bound and hence you probably do not want to increase this
+   value too much.
  * **crawlers**: allows you to configure options for the crawlers.
    - **type**: specify crawler type. Currently, only "github" is
      implemented.
