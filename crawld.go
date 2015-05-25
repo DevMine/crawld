@@ -22,6 +22,7 @@ import (
 
 	"github.com/DevMine/crawld/config"
 	"github.com/DevMine/crawld/crawlers"
+	"github.com/DevMine/crawld/errbag"
 	"github.com/DevMine/crawld/repo"
 	"github.com/DevMine/crawld/tar"
 )
@@ -46,41 +47,24 @@ func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 	}
 }
 
-// fetcherCall shall be used to call fetcher functions that might return
-// ErrNetwork or ErrNoSpace. These typically include repo.Clone() and
-// repo.Update().
-// Be aware that fetcherCall will never return until a network error
-// occurs or if there is no space left on device. Restoring the network
-// connexion or freeing up some space will allow it to return.
-func fetcherCall(fct func() error) error {
-	var err error
-	for {
-		if err = fct(); err == repo.ErrNetwork || err == repo.ErrNoSpace {
-			// there is no point trying to continue running right now
-			// hence, wait a moment and try again
-			glog.Error("critical error encountered (" + err.Error() + "), waiting for 1 hour before resuming")
-			time.Sleep(time.Hour)
-		} else {
-			return err
-		}
-	}
-}
-
-func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration, useTar bool, maxWorkers uint) {
+func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration, useTar bool, maxWorkers uint, errBag *errbag.ErrBag) {
 	clone := func(r repo.Repo) {
 		glog.Infof("cloning %s into %s\n", r.URL(), r.AbsPath())
-		if err := fetcherCall(r.Clone); err != nil {
+		if err := r.Clone(); err != nil {
 			glog.Errorf("impossible to clone %s in %s ("+err.Error()+") skipping", r.URL(), r.AbsPath())
+			errBag.Record(err)
 		}
 	}
 
 	update := func(r repo.Repo) {
 		glog.Infof("updating %s\n", r.AbsPath())
-		if err := fetcherCall(r.Update); err != nil {
+		if err := r.Update(); err != nil {
 			// delete and reclone then
 			glog.Warningf("impossible to update %s ("+err.Error()+") => attempting to re-clone", r.AbsPath())
+			errBag.Record(err)
 			if err2 := os.RemoveAll(r.AbsPath()); err2 != nil {
 				glog.Errorf("cannot remove %s("+err2.Error()+")", r.AbsPath())
+				errBag.Record(err)
 			} else {
 				clone(r)
 			}
@@ -91,6 +75,7 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 		if err := tar.CreateInPlace(path); err != nil {
 			glog.Error("impossible to create tar archive (" + path + ".tar ): " +
 				err.Error())
+			errBag.Record(err)
 		}
 	}
 
@@ -298,8 +283,16 @@ func main() {
 
 	// start the repo puller worker
 	if !*disableFetcher {
+		errBag, err := errbag.New(cfg.ThrottlerWaitTime, cfg.SlidingWindowSize, cfg.MaxErrorRate)
+		if err != nil {
+			glog.Error("impossible to start the repositories fetcher")
+			return
+		}
+		errBag.Inflate()
+		defer errBag.Deflate()
+
 		wg.Add(1)
-		go repoWorker(db, cfg.FetchLanguages, cfg.CloneDir, fetchInterval, cfg.TarRepos, cfg.MaxFetcherWorkers)
+		go repoWorker(db, cfg.FetchLanguages, cfg.CloneDir, fetchInterval, cfg.TarRepos, cfg.MaxFetcherWorkers, errBag)
 	}
 
 	// wait until the cows come home saint
