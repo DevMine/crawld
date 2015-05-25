@@ -40,13 +40,6 @@ type Config struct {
 	// value too much.
 	MaxFetcherWorkers uint `json:"max_fetcher_workers"`
 
-	// Crawlers is a group of crawlers configuration.
-	Crawlers []CrawlerConfig `json:"crawlers"`
-
-	// CrawlingTimeInterval corresponds to the time to wait between 2 full
-	// crawling periods.
-	CrawlingTimeInterval string `json:"crawling_time_interval"`
-
 	// FetchTimeInterval corresponds to the time to wait betweeb 2 full
 	// repositories fetching periods.
 	FetchTimeInterval string `json:"fetch_time_interval"`
@@ -55,6 +48,26 @@ type Config struct {
 	// If the list is empty or nil, the fetcher will fetch all repositories,
 	// independently of the language.
 	FetchLanguages []string `json:"fetch_languages"`
+
+	// ThrottlerWaitTime can be used to specify how much time to wait, in
+	// seconds, before resuming normal operations if the error rate is too high
+	// (defaults to 1800).
+	ThrottlerWaitTime uint `json:"throttler_wait_time"`
+
+	// SlidingWindowSize can be used to specify the sliding window size to
+	// consider for throttling based on errors rate (defaults to 60).
+	SlidingWindowSize uint `json:"throttler_sliding_window_size"`
+
+	// MaxErrorRate is the maximum error rate allowed before throttling.
+	// It is relative to SlidingWindowSize (defaults to 1).
+	MaxErrorRate float64 `json:"throttler_max_error_rate"`
+
+	// Crawlers is a group of crawlers configuration.
+	Crawlers []CrawlerConfig `json:"crawlers"`
+
+	// CrawlingTimeInterval corresponds to the time to wait between 2 full
+	// crawling periods.
+	CrawlingTimeInterval string `json:"crawling_time_interval"`
 
 	// Database is the database configuration.
 	Database DatabaseConfig `json:"database"`
@@ -140,12 +153,24 @@ func ReadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
-	if err := cfg.verify(); err != nil {
-		return nil, err
-	}
-
 	if cfg.MaxFetcherWorkers < 1 {
 		cfg.MaxFetcherWorkers = 1
+	}
+
+	if cfg.ThrottlerWaitTime == 0 {
+		cfg.ThrottlerWaitTime = 1800
+	}
+
+	if cfg.SlidingWindowSize == 0 {
+		cfg.SlidingWindowSize = 60
+	}
+
+	if cfg.MaxErrorRate <= 0 {
+		cfg.MaxErrorRate = 1.0
+	}
+
+	if err := cfg.verify(); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil
@@ -153,7 +178,7 @@ func ReadConfig(path string) (*Config, error) {
 
 func (c Config) verify() error {
 	if len(strings.Trim(c.CloneDir, " ")) == 0 {
-		return errors.New("clone_dir cannot be empty")
+		return errors.New("config: clone_dir cannot be empty")
 	}
 
 	if _, err := time.ParseDuration(c.CrawlingTimeInterval); err != nil {
@@ -162,6 +187,22 @@ func (c Config) verify() error {
 
 	if _, err := time.ParseDuration(c.FetchTimeInterval); err != nil {
 		return errors.New("config: invalid fetch time interval format")
+	}
+
+	if c.MaxFetcherWorkers < 1 {
+		return errors.New("config: max_fetcher_workers needs to be at least 1")
+	}
+
+	if c.ThrottlerWaitTime == 0 {
+		return errors.New("config: throttler_wait_time must be a positive value")
+	}
+
+	if c.SlidingWindowSize == 0 {
+		return errors.New("config: throttler_sliding_window_size must be a positive value")
+	}
+
+	if c.MaxErrorRate <= 0 {
+		return errors.New("config: throttler_max_error_rate must be a positive value")
 	}
 
 	for _, cs := range c.Crawlers {
