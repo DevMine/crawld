@@ -17,7 +17,7 @@ import (
 type ErrBag struct {
 	waitTime uint
 	leakRate float64
-	errChan  chan error
+	errChan  chan struct{}
 	done     chan struct{}
 }
 
@@ -33,7 +33,7 @@ func New(waitTime, slidingWindow uint, leakRate float64) (*ErrBag, error) {
 		return nil, errors.New("leakRate cannot be less than or equal to 0")
 	}
 	// channels are closed when Deflate() is invoked
-	errChan := make(chan error, slidingWindow)
+	errChan := make(chan struct{}, slidingWindow)
 	done := make(chan struct{}, 1)
 	return &ErrBag{waitTime: waitTime, leakRate: leakRate, errChan: errChan, done: done}, nil
 }
@@ -66,7 +66,7 @@ func (eb ErrBag) Deflate() {
 func (eb ErrBag) Record(err error) {
 	if err != nil {
 		select {
-		case eb.errChan <- err:
+		case eb.errChan <- struct{}{}:
 		default:
 			time.Sleep(time.Second * time.Duration(eb.waitTime))
 		}
