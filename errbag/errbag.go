@@ -18,6 +18,7 @@ type ErrBag struct {
 	waitTime uint
 	leakRate float64
 	errChan  chan error
+	done     chan struct{}
 }
 
 // New creates a new ErrBag, for safety purpose. waitTime corresponds to the
@@ -31,19 +32,29 @@ func New(waitTime, slidingWindow uint, leakRate float64) (*ErrBag, error) {
 	if leakRate <= 0 {
 		return nil, errors.New("leakRate cannot be less than or equal to 0")
 	}
+	// channels are closed when Deflate() is invoked
 	errChan := make(chan error, slidingWindow)
-	return &ErrBag{waitTime: waitTime, leakRate: leakRate, errChan: errChan}, nil
+	done := make(chan struct{}, 1)
+	return &ErrBag{waitTime: waitTime, leakRate: leakRate, errChan: errChan, done: done}, nil
 }
 
 // Inflate needs to be called once to prepare the ErrBag. Once the ErrBag
 // is not needed anymore, a proper call to Deflate() shall be made.
 func (eb ErrBag) Inflate() {
-	go eb.airLeak()
+	go func() {
+		go eb.errLeak()
+		// wait for the exit signal
+		<-eb.done
+		// by returning, we also kill the child goroutine (errLeak())
+		return
+	}()
 }
 
 // Deflate needs to be called when the errbag is of no use anymore.
 // Calling Record() with a deflated errbag will induce a panic.
 func (eb ErrBag) Deflate() {
+	eb.done <- struct{}{}
+	close(eb.done)
 	close(eb.errChan)
 }
 
@@ -62,9 +73,9 @@ func (eb ErrBag) Record(err error) {
 	}
 }
 
-// airLeak leaks error from the errbag at leakRate until the error channel
+// errLeak leaks error from the errbag at leakRate until the error channel
 // is closed.
-func (eb ErrBag) airLeak() {
+func (eb ErrBag) errLeak() {
 	for _, ok := <-eb.errChan; ok; _, ok = <-eb.errChan {
 		time.Sleep(time.Second * time.Duration(eb.leakRate))
 	}
