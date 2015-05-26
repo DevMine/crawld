@@ -55,12 +55,12 @@ type Config struct {
 	ThrottlerWaitTime uint `json:"throttler_wait_time"`
 
 	// SlidingWindowSize can be used to specify the sliding window size to
-	// consider for throttling based on errors rate (defaults to 60).
+	// consider for error throttling (defaults to 60).
 	SlidingWindowSize uint `json:"throttler_sliding_window_size"`
 
-	// MaxErrorRate is the maximum error rate allowed before throttling.
-	// It is relative to SlidingWindowSize (defaults to 1).
-	MaxErrorRate float64 `json:"throttler_max_error_rate"`
+	// LeakInterval corresponds to the time, in milliseconds, the throttler
+	// waits before discarding an error (defaults to 1000, ie 1 second).
+	LeakInterval uint `json:"throttler_leak_interval"`
 
 	// Crawlers is a group of crawlers configuration.
 	Crawlers []CrawlerConfig `json:"crawlers"`
@@ -165,8 +165,8 @@ func ReadConfig(path string) (*Config, error) {
 		cfg.SlidingWindowSize = 60
 	}
 
-	if cfg.MaxErrorRate <= 0 {
-		cfg.MaxErrorRate = 1.0
+	if cfg.LeakInterval == 0 {
+		cfg.LeakInterval = 1000
 	}
 
 	if err := cfg.verify(); err != nil {
@@ -194,15 +194,15 @@ func (c Config) verify() error {
 	}
 
 	if c.ThrottlerWaitTime == 0 {
-		return errors.New("config: throttler_wait_time must be a positive value")
+		return errors.New("config: throttler_wait_time must be positive")
 	}
 
 	if c.SlidingWindowSize == 0 {
-		return errors.New("config: throttler_sliding_window_size must be a positive value")
+		return errors.New("config: throttler_sliding_window_size must be positive")
 	}
 
-	if c.MaxErrorRate <= 0 {
-		return errors.New("config: throttler_max_error_rate must be a positive value")
+	if c.LeakInterval < 100 {
+		return errors.New("config: throttler_leak_interval must be >= 100")
 	}
 
 	for _, cs := range c.Crawlers {

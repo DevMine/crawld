@@ -18,7 +18,7 @@
     "max_fetcher_workers": 4,
     "throttler_wait_time": 900,
     "throttler_sliding_window_size": 60,
-    "throttler_max_error_rate": 1.0,
+    "throttler_leak_interval": 1000,
     "crawlers": [
         {
             "type": "github",

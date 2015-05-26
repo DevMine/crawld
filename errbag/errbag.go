@@ -15,27 +15,35 @@ import (
 // ErrBag is very effective at preventing an error rate to reach a
 // certain threshold.
 type ErrBag struct {
-	waitTime uint
-	leakRate float64
-	errChan  chan struct{}
-	done     chan struct{}
+	waitTime     uint
+	leakInterval uint
+	errChan      chan struct{}
+	done         chan struct{}
 }
 
 // New creates a new ErrBag, for safety purpose. waitTime corresponds to the
 // number of seconds to wait when the error rate threshold is reached.
-// slidingWindow is, in seconds, the size of the sliding window to consider
-// for throttling. leakRate corresponds to the rate at which errors are leaked
-// from the errbag in terms of errors per second. At a rate of 1, it will take
-// exactly slidingWindow seconds to empty the errbag if it is full, considering
-// no other errors are recorded during that time.
-func New(waitTime, slidingWindow uint, leakRate float64) (*ErrBag, error) {
-	if leakRate <= 0 {
-		return nil, errors.New("leakRate cannot be less than or equal to 0")
+// errBagSize is, in seconds, the size of the sliding window to consider
+// for throttling. You can see it as the size of the errbag. The larger it is,
+// the larger the window to consider for error rate is. Consider this value
+// along with the leakInterval. leakInterval corresponds to the time to wait,
+// in milliseconds, before an error is discarded from the errbag. It must be
+// equal or greater than 100, otherwise throttling will be ineffective.
+func New(waitTime, errBagSize, leakInterval uint) (*ErrBag, error) {
+	if waitTime == 0 {
+		return nil, errors.New("setting waitTime to 0 would prevent throttling")
 	}
+	if errBagSize == 0 {
+		return nil, errors.New("setting errBagSize to 0 would prevent throttling")
+	}
+	if leakInterval < 100 {
+		return nil, errors.New("leakInterval must be greater than 100")
+	}
+
 	// channels are closed when Deflate() is invoked
-	errChan := make(chan struct{}, slidingWindow)
+	errChan := make(chan struct{}, errBagSize)
 	done := make(chan struct{}, 1)
-	return &ErrBag{waitTime: waitTime, leakRate: leakRate, errChan: errChan, done: done}, nil
+	return &ErrBag{waitTime: waitTime, leakInterval: leakInterval, errChan: errChan, done: done}, nil
 }
 
 // Inflate needs to be called once to prepare the ErrBag. Once the ErrBag
@@ -60,7 +68,7 @@ func (eb ErrBag) Deflate() {
 
 // Record records an error if its value is non nil. It shall be called
 // by any function returning an error in order to properly rate limit the
-// errors produced. RecordError will wait for waitTime minutes if the error
+// errors produced. RecordError will wait for waitTime seconds if the error
 // rate is too high.
 // Note that record will panic if called after Deflate() has been called.
 func (eb ErrBag) Record(err error) {
@@ -73,10 +81,10 @@ func (eb ErrBag) Record(err error) {
 	}
 }
 
-// errLeak leaks error from the errbag at leakRate until the error channel
+// errLeak leaks error from the errbag at leakInterval until the error channel
 // is closed.
 func (eb ErrBag) errLeak() {
 	for _, ok := <-eb.errChan; ok; _, ok = <-eb.errChan {
-		time.Sleep(time.Second * time.Duration(eb.leakRate))
+		time.Sleep(time.Millisecond * time.Duration(eb.leakInterval))
 	}
 }

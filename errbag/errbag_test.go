@@ -11,17 +11,26 @@ import (
 )
 
 func TestErrBag(t *testing.T) {
-	var waitTime, slidingWindow uint
-	var leakRate float64
+	var waitTime, errBagSize, leakInterval uint
 
-	waitTime, slidingWindow, leakRate = 5, 60, -1.0
-
-	if _, err := New(waitTime, slidingWindow, leakRate); err == nil {
-		t.Fatal("negative leak rate shall not be permitted")
+	// test some bad input
+	waitTime, errBagSize, leakInterval = 5, 60, 99
+	if _, err := New(waitTime, errBagSize, leakInterval); err == nil {
+		t.Fatal("leak interval < 100 shall not be permitted")
+	}
+	leakInterval = 1000
+	errBagSize = 0
+	if _, err := New(waitTime, errBagSize, leakInterval); err == nil {
+		t.Fatal("errBagSize of 0 shall not be permitted")
+	}
+	errBagSize = 60
+	waitTime = 0
+	if _, err := New(waitTime, errBagSize, leakInterval); err == nil {
+		t.Fatal("waitTime of 0 shall not be permitted")
 	}
 
-	leakRate = 1.0
-	errBag, err := New(waitTime, slidingWindow, leakRate)
+	waitTime = 5
+	errBag, err := New(waitTime, errBagSize, leakInterval)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +52,7 @@ func TestErrBag(t *testing.T) {
 
 	// now test throttling
 	start = time.Now()
-	for i = 0; i < slidingWindow+3; i++ {
+	for i = 0; i < errBagSize+3; i++ {
 		errBag.Record(err)
 	}
 	elapsed = time.Since(start)

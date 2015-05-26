@@ -283,7 +283,7 @@ func main() {
 
 	// start the repo puller worker
 	if !*disableFetcher {
-		errBag, err := errbag.New(cfg.ThrottlerWaitTime, cfg.SlidingWindowSize, cfg.MaxErrorRate)
+		errBag, err := errbag.New(cfg.ThrottlerWaitTime, cfg.SlidingWindowSize, cfg.LeakInterval)
 		if err != nil {
 			glog.Error("impossible to start the repositories fetcher")
 			return
