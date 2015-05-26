@@ -10,7 +10,7 @@ build:
 	go build -o ${EXEC} ${PKG}
 
 test:
-	go test -v ${PKG}/...
+	go test -v -timeout 2m ${PKG}/...
 
 # FIXME: we shall compile libgit2 statically with git2go to prevent libgit2
 # from being a dependency to run crawld
