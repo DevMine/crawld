@@ -59,9 +59,16 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 	update := func(r repo.Repo) {
 		glog.Infof("updating %s\n", r.AbsPath())
 		if err := r.Update(); err != nil {
-			// delete and reclone then
-			glog.Warningf("impossible to update %s ("+err.Error()+") => attempting to re-clone", r.AbsPath())
+			glog.Warningf("impossible to update %s ("+err.Error()+")", r.AbsPath())
 			errBag.Record(err)
+
+			// we just want to skip on a network error
+			if err == repo.ErrNetwork {
+				return
+			}
+
+			// delete and reclone then
+			glog.Infof("attempting to re-clone %s", r.AbsPath())
 			if err2 := os.RemoveAll(r.AbsPath()); err2 != nil {
 				glog.Errorf("cannot remove %s("+err2.Error()+")", r.AbsPath())
 				errBag.Record(err)
