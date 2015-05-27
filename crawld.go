@@ -48,15 +48,17 @@ func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 }
 
 func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration, useTar bool, maxWorkers uint, errBag *errbag.ErrBag) {
-	clone := func(r repo.Repo) {
+	clone := func(r repo.Repo) error {
 		glog.Infof("cloning %s into %s\n", r.URL(), r.AbsPath())
 		if err := r.Clone(); err != nil {
 			glog.Errorf("impossible to clone %s in %s ("+err.Error()+") skipping", r.URL(), r.AbsPath())
 			errBag.Record(err)
+			return err
 		}
+		return nil
 	}
 
-	update := func(r repo.Repo) {
+	update := func(r repo.Repo) error {
 		glog.Infof("updating %s\n", r.AbsPath())
 		if err := r.Update(); err != nil {
 			glog.Warningf("impossible to update %s ("+err.Error()+")", r.AbsPath())
@@ -64,7 +66,7 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 
 			// we just want to skip on a network error
 			if err == repo.ErrNetwork {
-				return
+				return err
 			}
 
 			// delete and reclone then
@@ -72,10 +74,11 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 			if err2 := os.RemoveAll(r.AbsPath()); err2 != nil {
 				glog.Errorf("cannot remove %s("+err2.Error()+")", r.AbsPath())
 				errBag.Record(err)
-			} else {
-				clone(r)
+				return err
 			}
+			return clone(r)
 		}
+		return nil
 	}
 
 	createArchive := func(path string) {
@@ -104,9 +107,7 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 			wg.Add(1)
 			go func() {
 				for r := range tasks {
-					// check if we have a tar archive of the repository in which case
-					// we only need to update but extract apriori and recreate the tar
-					// archive afterwards
+					// if we have a tar archive, we need to extract it
 					archive := r.AbsPath() + ".tar"
 					if _, err = os.Stat(archive); err == nil {
 						if err = tar.ExtractInPlace(archive); err != nil {
@@ -115,15 +116,16 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 							// attempt to remove the eventual mess
 							_ = os.Remove(archive)
 							_ = os.RemoveAll(r.AbsPath())
-							clone(r)
-						} else {
-							update(r)
+						}
+					}
+
+					if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
+						if err = clone(r); err != nil {
+							continue
 						}
 					} else {
-						if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
-							clone(r)
-						} else {
-							update(r)
+						if err = update(r); err != nil {
+							continue
 						}
 					}
 
