@@ -25,10 +25,12 @@ deps:
 
 dev-deps:
 	go get -u github.com/golang/lint/golint
+	go get -u rsc.io/grind
 
 check:
 	go vet ${PKG}/...
 	golint ${PKG}/...
+	grind -diff ${PKG}
 
 cover:
 	go test -cover ${PKG}/...
