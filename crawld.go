@@ -102,6 +102,10 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 		for _, r := range repos {
 			tasks <- r
 		}
+		// we don't want any routine to add new tasks in the queue now
+		// if we don't close the channel now, the goroutines processing the
+		// tasks will wait forever for new tasks and never return
+		close(tasks)
 
 		for w := uint(0); w < maxWorkers; w++ {
 			wg.Add(1)
@@ -141,7 +145,6 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 			}()
 		}
 
-		close(tasks)
 		wg.Wait()
 
 		glog.Infof("waiting for %v before re-starting the fetcher.\n", fetchInterval)
