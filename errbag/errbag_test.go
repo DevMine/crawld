@@ -50,6 +50,9 @@ func TestErrBag(t *testing.T) {
 		t.Fatal("throttling when error rate is low")
 	}
 
+	// make sure the error pipeline is empty before starting new test
+	time.Sleep(time.Duration(4) * time.Second)
+
 	// now test throttling
 	start = time.Now()
 	for i = 0; i < errBagSize+3; i++ {
