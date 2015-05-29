@@ -11,8 +11,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
+	"path"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +29,15 @@ import (
 	"github.com/DevMine/crawld/repo"
 	"github.com/DevMine/crawld/tar"
 )
+
+// extend this structure later if required but for now the repository id sufficient
+type dbRepo struct {
+	repo.Repo
+	id uint64
+}
+
+// channel used to communicate repositories IDs
+var idChan chan uint64
 
 func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 	for {
@@ -47,7 +59,13 @@ func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 	}
 }
 
-func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.Duration, useTar bool, maxWorkers uint, errBag *errbag.ErrBag) {
+func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.ErrBag) {
+
+	fetchInterval, err := time.ParseDuration(cfg.FetchTimeInterval)
+	if err != nil {
+		fatal(err)
+	}
+
 	clone := func(r repo.Repo) error {
 		glog.Infof("cloning %s into %s\n", r.URL(), r.AbsPath())
 		if err := r.Clone(); err != nil {
@@ -91,12 +109,14 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 
 	for {
 		glog.Info("starting the repositories fetcher")
-		repos, err := getAllRepos(db, langs, basePath)
+		repos, err := getAllRepos(db, startId, cfg.FetchLanguages, cfg.CloneDir)
 		if err != nil {
 			fatal(err)
 		}
+		// next time, we want to get all repos from the first one
+		startId = 0
 
-		tasks := make(chan repo.Repo, len(repos))
+		tasks := make(chan dbRepo, len(repos))
 		var wg sync.WaitGroup
 
 		for _, r := range repos {
@@ -107,7 +127,7 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 		// tasks will wait forever for new tasks and never return
 		close(tasks)
 
-		for w := uint(0); w < maxWorkers; w++ {
+		for w := uint(0); w < cfg.MaxFetcherWorkers; w++ {
 			wg.Add(1)
 			go func() {
 				for r := range tasks {
@@ -133,13 +153,16 @@ func repoWorker(db *sql.DB, langs []string, basePath string, fetchInterval time.
 						}
 					}
 
-					if useTar {
+					if cfg.TarRepos {
 						createArchive(r.AbsPath())
 					}
 
 					if err = r.Cleanup(); err != nil {
 						glog.Warning(err)
 					}
+
+					// notify we're done with this repository
+					idChan <- r.id
 				}
 				wg.Done()
 			}()
@@ -161,42 +184,42 @@ func isDirEmpty(path string) bool {
 	return len(fis) == 0
 }
 
-func getAllRepos(db *sql.DB, langs []string, basePath string) ([]repo.Repo, error) {
-	var inClause string
+func getAllRepos(db *sql.DB, startId uint64, langs []string, basePath string) ([]dbRepo, error) {
+	inClause := fmt.Sprintf("WHERE id >= %d", startId)
 	if langs != nil && len(langs) > 0 {
 		// Quote languages.
 		for idx, val := range langs {
 			langs[idx] = "'" + val + "'"
 		}
-		inClause = " WHERE LOWER(primary_language) IN (" + strings.Join(langs, ",") + ")"
+		inClause += " AND LOWER(primary_language) IN (" + strings.Join(langs, ",") + ")"
 	}
 
-	rows, err := db.Query("SELECT vcs, clone_path, clone_url FROM repositories" + inClause)
+	rows, err := db.Query("SELECT id, vcs, clone_path, clone_url FROM repositories " + inClause + " ORDER BY id")
 	if err != nil {
 		glog.Error(err)
 		return nil, err
 	}
 	defer rows.Close()
 
-	var repos []repo.Repo
+	var repos []dbRepo
 
 	for rows.Next() {
 		var vcs, clonePath, cloneURL string
-		if err := rows.Scan(&vcs, &clonePath, &cloneURL); err != nil {
+		var id uint64
+		if err := rows.Scan(&id, &vcs, &clonePath, &cloneURL); err != nil {
 			glog.Error(err)
 			continue
 		}
 
 		var newRepo repo.Repo
 		var err error
-
 		newRepo, err = repo.New(vcs, filepath.Join(basePath, clonePath), cloneURL)
 		if err != nil {
 			glog.Error(err)
 			continue
 		}
 
-		repos = append(repos, newRepo)
+		repos = append(repos, dbRepo{Repo: newRepo, id: id})
 	}
 
 	return repos, nil
@@ -288,11 +311,6 @@ func main() {
 		go crawlingWorker(cs, crawlingInterval)
 	}
 
-	fetchInterval, err := time.ParseDuration(cfg.FetchTimeInterval)
-	if err != nil {
-		fatal(err)
-	}
-
 	// start the repo puller worker
 	if !*disableFetcher {
 		errBag, err := errbag.New(cfg.ThrottlerWaitTime, cfg.SlidingWindowSize, cfg.LeakInterval)
@@ -301,10 +319,54 @@ func main() {
 			return
 		}
 		errBag.Inflate()
-		defer errBag.Deflate()
+
+		var startId uint64
+		lastFetchedIdFile := path.Join(cfg.CloneDir, "last_fetched_id")
+		if bs, err := ioutil.ReadFile(lastFetchedIdFile); len(bs) != 0 && err == nil {
+			if startId, err = strconv.ParseUint(string(bs), 10, 64); err != nil {
+				glog.Warning("cannot convert (" + string(bs) + ") to a repository id, starting from 0...")
+				startId = 0
+			}
+		} else {
+			glog.Warning("cannot get last fetched repository id, starting from 0...")
+			startId = 0
+		}
+
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt, os.Kill)
+
+		idChan = make(chan uint64)
+
+		// this routines writes the last processed repository id in a file, getting it from idChan
+		go func() {
+			f, err := os.OpenFile(lastFetchedIdFile, os.O_WRONLY|os.O_CREATE, 0644)
+			if err != nil {
+				glog.Fatal("cannot open file for writing (" + lastFetchedIdFile + "): " + err.Error())
+			}
+
+			// we want to make sure we close the file and do some housekeeping on interruption
+			go func() {
+				<-c
+				fmt.Fprintln(os.Stderr, "caught signal, exiting now...")
+				f.Sync()
+				f.Close()
+				errBag.Deflate()
+				os.Exit(0)
+			}()
+
+			for id, ok := <-idChan; ok; id, ok = <-idChan {
+				if _, err := f.Seek(0, 0); err != nil {
+					glog.Warning("could not write ID to file:", id)
+				} else {
+					// pad with 0 up to 20 because the largest unsigned integer
+					// of 64 bit fits in 20 digits in decimal format
+					fmt.Fprintf(f, "%020d", id)
+				}
+			}
+		}()
 
 		wg.Add(1)
-		go repoWorker(db, cfg.FetchLanguages, cfg.CloneDir, fetchInterval, cfg.TarRepos, cfg.MaxFetcherWorkers, errBag)
+		go repoWorker(db, cfg, startId, errBag)
 	}
 
 	// wait until the cows come home saint
