@@ -9,7 +9,6 @@ import (
 	"archive/tar"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,19 +87,18 @@ func Create(destPath, dirPath string) error {
 			return nil
 		}
 
-		// TODO use buffer reader
-		bs, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
-		}
+		return func() error {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
 
-		if _, err = tw.Write(bs); err != nil {
-			return err
-		}
-
-		// TODO Flush w here ?
-
-		return nil
+			if _, err = io.Copy(tw, f); err != nil {
+				return err
+			}
+			return nil
+		}()
 	})
 
 	return err
