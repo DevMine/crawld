@@ -66,11 +66,17 @@ func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.E
 		fatal(err)
 	}
 
+	callback := func(status errbag.Status) {
+		if status.State == errbag.StatusThrottling {
+			glog.Info("too many errors received; waiting for ", status.WaitTime, " seconds before resuming")
+		}
+	}
+
 	clone := func(r repo.Repo) error {
 		glog.Infof("cloning %s into %s\n", r.URL(), r.AbsPath())
 		if err := r.Clone(); err != nil {
 			glog.Errorf("impossible to clone %s in %s ("+err.Error()+") skipping", r.URL(), r.AbsPath())
-			errBag.Record(err)
+			errBag.Record(err, callback)
 			return err
 		}
 		return nil
@@ -80,7 +86,7 @@ func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.E
 		glog.Infof("updating %s\n", r.AbsPath())
 		if err := r.Update(); err != nil {
 			glog.Warningf("impossible to update %s ("+err.Error()+")", r.AbsPath())
-			errBag.Record(err)
+			errBag.Record(err, callback)
 
 			// we just want to skip on a network error
 			if err == repo.ErrNetwork {
@@ -91,7 +97,7 @@ func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.E
 			glog.Infof("attempting to re-clone %s", r.AbsPath())
 			if err2 := os.RemoveAll(r.AbsPath()); err2 != nil {
 				glog.Errorf("cannot remove %s("+err2.Error()+")", r.AbsPath())
-				errBag.Record(err)
+				errBag.Record(err, callback)
 				return err
 			}
 			return clone(r)
@@ -103,7 +109,7 @@ func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.E
 		if err := tar.CreateInPlace(path); err != nil {
 			glog.Error("impossible to create tar archive (" + path + ".tar ): " +
 				err.Error())
-			errBag.Record(err)
+			errBag.Record(err, callback)
 		}
 	}
 
