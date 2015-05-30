@@ -37,13 +37,23 @@ func TestErrBag(t *testing.T) {
 
 	errBag.Inflate()
 
+	// attempt recording an error without specifying a callback function
+	// (it is expected to be valid)
 	err = errors.New("foo error")
-	var i uint
+	errBag.Record(err, nil)
 
+	var i uint
 	// test that it does not block on less than 1 error per second
 	start := time.Now()
-	for i = 0; i < 4; i++ {
-		errBag.Record(err)
+	for i = 0; i < 2; i++ {
+		errBag.Record(err, func(status Status) {
+			if status.State != StatusOK {
+				t.Error(errors.New("expected StatusOK"))
+			}
+			if status.WaitTime != 0 {
+				t.Error(errors.New("no wait time expected"))
+			}
+		})
 	}
 	elapsed := time.Since(start)
 	if elapsed > time.Second*time.Duration(waitTime) {
@@ -51,20 +61,45 @@ func TestErrBag(t *testing.T) {
 	}
 
 	// make sure the error pipeline is empty before starting new test
-	time.Sleep(time.Duration(4) * time.Second)
+	// (we recorded 3 errors until now)
+	time.Sleep(time.Duration(leakInterval) * time.Millisecond * (2 + 1))
+	// kill errLeak routine to prevent error leaking
+	errBag.done <- struct{}{}
+	// make sure it has had time to stop
+	time.Sleep(time.Duration(500) * time.Millisecond)
 
 	// now test throttling
 	start = time.Now()
-	for i = 0; i < errBagSize+3; i++ {
-		errBag.Record(err)
+	for i = 0; i < errBagSize+1; i++ {
+		if i == errBagSize {
+			// now that the bag is full, it shall throttle if attempting to
+			// record a new error
+			errBag.Record(err, func(status Status) {
+				if status.State != StatusThrottling {
+					t.Error(errors.New("expected StatusThrottling"))
+				}
+				if status.WaitTime != waitTime {
+					t.Error(errors.New("expected different WaitTime"))
+				}
+			})
+		} else {
+			errBag.Record(err, nil)
+		}
 	}
+
 	elapsed = time.Since(start)
 	if elapsed < time.Second*time.Duration(waitTime) {
 		t.Fatal("failed to throttle")
 	}
 
+	// since we stopped errLeak earlier to prevent leaking, restart it here
+	errBag.Inflate()
+
 	// errBag is full of errors, deflate shall empty it
 	errBag.Deflate()
+
+	// make sure it has had time to deflate
+	time.Sleep(time.Duration(leakInterval) * time.Millisecond)
 
 	// attempting to record errors now shall panic
 	defer func() {
@@ -72,5 +107,5 @@ func TestErrBag(t *testing.T) {
 			t.Fatal("call to Record() shall panic")
 		}
 	}()
-	errBag.Record(err)
+	errBag.Record(err, nil)
 }

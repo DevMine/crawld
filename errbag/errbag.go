@@ -21,6 +21,30 @@ type ErrBag struct {
 	done         chan struct{}
 }
 
+// Status structure is used as argument to CallbackFunc. It indicates the
+// the sate of the errbag after having recorded an error.
+type Status struct {
+	// State indicates whether throttling had to be activated after an error
+	// has been recorded (StatusThrottling) or if it was simply registered and
+	// all is well (StatusOK).
+	State int
+
+	// WaitTime indicates for how long the Record() method will wait before
+	// being available to record new errors.
+	WaitTime uint
+}
+
+// CallbackFunc is used as an argument to the Record() method.
+type CallbackFunc func(status Status)
+
+const (
+	// StatusThrottling indicates the errbag is throttling.
+	StatusThrottling = iota
+
+	// StatusOK indicates that all is well.
+	StatusOK
+)
+
 // New creates a new ErrBag, for safety purpose. waitTime corresponds to the
 // number of seconds to wait when the error rate threshold is reached.
 // errBagSize is, in seconds, the size of the sliding window to consider
@@ -49,13 +73,14 @@ func New(waitTime, errBagSize, leakInterval uint) (*ErrBag, error) {
 // Inflate needs to be called once to prepare the ErrBag. Once the ErrBag
 // is not needed anymore, a proper call to Deflate() shall be made.
 func (eb ErrBag) Inflate() {
+	ready := make(chan bool)
 	go func() {
-		go eb.errLeak()
-		// wait for the exit signal
-		<-eb.done
-		// by returning, we also kill the child goroutine (errLeak())
-		return
+		ready <- true
+		eb.errLeak()
 	}()
+	// wait for the routine to be running
+	<-ready
+	close(ready)
 }
 
 // Deflate needs to be called when the errbag is of no use anymore.
@@ -70,12 +95,21 @@ func (eb ErrBag) Deflate() {
 // by any function returning an error in order to properly rate limit the
 // errors produced. RecordError will wait for waitTime seconds if the error
 // rate is too high.
+// callback purpose is for the caller to be informed about the errbag status
+// after an error has been recorded in order to help take the appropriate
+// actions. nil can be passed if the caller is not interested in the status.
 // Note that record will panic if called after Deflate() has been called.
-func (eb ErrBag) Record(err error) {
+func (eb ErrBag) Record(err error, callback CallbackFunc) {
 	if err != nil {
 		select {
 		case eb.errChan <- struct{}{}:
+			if callback != nil {
+				callback(Status{State: StatusOK})
+			}
 		default:
+			if callback != nil {
+				callback(Status{State: StatusThrottling, WaitTime: eb.waitTime})
+			}
 			time.Sleep(time.Second * time.Duration(eb.waitTime))
 		}
 	}
@@ -84,7 +118,12 @@ func (eb ErrBag) Record(err error) {
 // errLeak leaks error from the errbag at leakInterval until the error channel
 // is closed.
 func (eb ErrBag) errLeak() {
-	for _, ok := <-eb.errChan; ok; _, ok = <-eb.errChan {
-		time.Sleep(time.Millisecond * time.Duration(eb.leakInterval))
+	for {
+		select {
+		case <-eb.done:
+			return
+		case <-eb.errChan:
+			time.Sleep(time.Millisecond * time.Duration(eb.leakInterval))
+		}
 	}
 }
