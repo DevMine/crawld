@@ -121,6 +121,15 @@ needs. The configuration file has several sections:
    value for performance reasons. Note that fetching is I/O and networked bound
    more than CPU bound and hence you probably do not want to increase this
    value too much.
+ * **throttler\_wait\_time**: indicates how much time to wait, in seconds,
+   before resuming normal operation after throttling.
+ * **throttler\_sliding\_window\_size**: represents the size of the sliding
+   window used by the error rate throttler. If you have no idea about what that
+   means, it is safe to omit it since default value shall be sane.
+ * **throttler\_leak\_interval**: specify the time to wait, in milliseconds,
+   before taking off a unit from the sliding window. Again, if you have no idea
+   about what that means, it is safe to omit it since default value shall be
+   sane.
  * **crawlers**: allows you to configure options for the crawlers.
    - **type**: specify crawler type. Currently, only "github" is
      implemented.
