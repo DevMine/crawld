@@ -59,7 +59,7 @@ func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 	}
 }
 
-func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.ErrBag) {
+func repoWorker(db *sql.DB, cfg *config.Config, startID uint64, errBag *errbag.ErrBag) {
 	fetchInterval, err := time.ParseDuration(cfg.FetchTimeInterval)
 	if err != nil {
 		fatal(err)
@@ -106,12 +106,12 @@ func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.E
 
 	for {
 		glog.Info("starting the repositories fetcher")
-		repos, err := getAllRepos(db, startId, cfg.FetchLanguages, cfg.CloneDir)
+		repos, err := getAllRepos(db, startID, cfg.FetchLanguages, cfg.CloneDir)
 		if err != nil {
 			fatal(err)
 		}
 		// next time, we want to get all repos from the first one
-		startId = 0
+		startID = 0
 
 		tasks := make(chan dbRepo, len(repos))
 		var wg sync.WaitGroup
@@ -259,8 +259,8 @@ func isDirEmpty(path string) bool {
 	return len(fis) == 0
 }
 
-func getAllRepos(db *sql.DB, startId uint64, langs []string, basePath string) ([]dbRepo, error) {
-	inClause := fmt.Sprintf("WHERE id >= %d", startId)
+func getAllRepos(db *sql.DB, startID uint64, langs []string, basePath string) ([]dbRepo, error) {
+	inClause := fmt.Sprintf("WHERE id >= %d", startID)
 	if langs != nil && len(langs) > 0 {
 		// Quote languages.
 		for idx, val := range langs {
@@ -395,16 +395,16 @@ func main() {
 		}
 		errBag.Inflate()
 
-		var startId uint64
-		lastFetchedIdFile := path.Join(cfg.CloneDir, "last_fetched_id")
-		if bs, err := ioutil.ReadFile(lastFetchedIdFile); len(bs) != 0 && err == nil {
-			if startId, err = strconv.ParseUint(string(bs), 10, 64); err != nil {
+		var startID uint64
+		lastFetchedIDFile := path.Join(cfg.CloneDir, "last_fetched_id")
+		if bs, err := ioutil.ReadFile(lastFetchedIDFile); len(bs) != 0 && err == nil {
+			if startID, err = strconv.ParseUint(string(bs), 10, 64); err != nil {
 				glog.Warning("cannot convert (" + string(bs) + ") to a repository id, starting from 0...")
-				startId = 0
+				startID = 0
 			}
 		} else {
 			glog.Warning("cannot get last fetched repository id, starting from 0...")
-			startId = 0
+			startID = 0
 		}
 
 		c := make(chan os.Signal, 1)
@@ -414,9 +414,9 @@ func main() {
 
 		// this routines writes the last processed repository id in a file, getting it from idChan
 		go func() {
-			f, err := os.OpenFile(lastFetchedIdFile, os.O_WRONLY|os.O_CREATE, 0644)
+			f, err := os.OpenFile(lastFetchedIDFile, os.O_WRONLY|os.O_CREATE, 0644)
 			if err != nil {
-				glog.Fatal("cannot open file for writing (" + lastFetchedIdFile + "): " + err.Error())
+				glog.Fatal("cannot open file for writing (" + lastFetchedIDFile + "): " + err.Error())
 			}
 
 			// we want to make sure we close the file and do some housekeeping on interruption
@@ -441,7 +441,7 @@ func main() {
 		}()
 
 		wg.Add(1)
-		go repoWorker(db, cfg, startId, errBag)
+		go repoWorker(db, cfg, startID, errBag)
 	}
 
 	// wait until the cows come home saint
