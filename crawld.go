@@ -60,7 +60,6 @@ func crawlingWorker(cs []crawlers.Crawler, crawlingInterval time.Duration) {
 }
 
 func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.ErrBag) {
-
 	fetchInterval, err := time.ParseDuration(cfg.FetchTimeInterval)
 	if err != nil {
 		fatal(err)
@@ -105,14 +104,6 @@ func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.E
 		return nil
 	}
 
-	createArchive := func(path string) {
-		if err := tar.CreateInPlace(path); err != nil {
-			glog.Error("impossible to create tar archive (" + path + ".tar ): " +
-				err.Error())
-			errBag.Record(err, callback)
-		}
-	}
-
 	for {
 		glog.Info("starting the repositories fetcher")
 		repos, err := getAllRepos(db, startId, cfg.FetchLanguages, cfg.CloneDir)
@@ -137,38 +128,112 @@ func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.E
 			wg.Add(1)
 			go func() {
 				for r := range tasks {
-					// if we have a tar archive, we need to extract it
-					archive := r.AbsPath() + ".tar"
-					if _, err = os.Stat(archive); err == nil {
-						if err = tar.ExtractInPlace(archive); err != nil {
-							glog.Warning("impossible to extract the tar archive (" + archive + ")" +
-								", cannot update the repository: " + err.Error())
-							// attempt to remove the eventual mess
-							_ = os.Remove(archive)
-							_ = os.RemoveAll(r.AbsPath())
+					err := func() error {
+						defer func() {
+							if err = r.Cleanup(); err != nil {
+								glog.Warning(err)
+								errBag.Record(err, callback)
+							}
+						}()
+
+						var tmpPath, tmpDest string
+						var useTmpDir bool
+						archive := r.AbsPath() + ".tar"
+
+						if cfg.TarRepos {
+							// we need to define the temp working directory then
+							tmpPath, err = ioutil.TempDir(cfg.TmpDir, "repo-")
+							if err != nil {
+								glog.Error("cannot create temporary directory in " + cfg.TmpDir)
+								errBag.Record(err, callback)
+								return err
+							}
+							tmpDest = filepath.Join(tmpPath, filepath.Base(r.AbsPath()))
+							useTmpDir = true
+
+							defer func() {
+								if err = os.RemoveAll(tmpPath); err != nil {
+									glog.Warning("impossible to remove temporary directory: " + tmpPath)
+									errBag.Record(err, callback)
+								}
+							}()
 						}
-					}
 
-					if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
-						if err = clone(r); err != nil {
-							continue
+						// if we have a tar archive, we need to extract it
+						if fi, err := os.Stat(archive); err == nil {
+							if useTmpDir && (bytesToGigaBytes(fi.Size()) < cfg.TmpDirFileSizeLimit) {
+								if err = tar.Extract(filepath.Dir(tmpDest), archive); err != nil {
+									glog.Warning("impossible to extract tar archive (" + archive + ")" +
+										", cannot update repository: " + err.Error())
+									// attempt to remove the eventual mess
+									_ = os.Remove(archive)
+									_ = os.RemoveAll(tmpDest)
+								}
+							} else {
+								if err = tar.ExtractInPlace(archive); err != nil {
+									glog.Warning("impossible to extract tar archive (" + archive + ")" +
+										", cannot update repository: " + err.Error())
+									// attempt to remove the eventual mess
+									_ = os.Remove(archive)
+									_ = os.RemoveAll(r.AbsPath())
+								}
+							}
 						}
-					} else {
-						if err = update(r); err != nil {
-							continue
+
+						if useTmpDir {
+							path := r.AbsPath()
+							r.SetAbsPath(tmpDest)
+							if _, err := os.Stat(tmpDest); os.IsNotExist(err) || isDirEmpty(tmpDest) {
+								useTmpDir = false
+								// maybe we have it on main storage, not as a tar archive
+								if _, err := os.Stat(path); os.IsNotExist(err) || isDirEmpty(path) {
+									if err = clone(r); err != nil {
+										return err
+									}
+								} else {
+									r.SetAbsPath(path)
+									if err = update(r); err != nil {
+										return err
+									}
+								}
+							} else {
+								if err = update(r); err != nil {
+									return err
+								}
+							}
+							r.SetAbsPath(path)
+						} else {
+							if _, err := os.Stat(r.AbsPath()); os.IsNotExist(err) || isDirEmpty(r.AbsPath()) {
+								if err = clone(r); err != nil {
+									return err
+								}
+							} else {
+								if err = update(r); err != nil {
+									return err
+								}
+							}
 						}
-					}
 
-					if cfg.TarRepos {
-						createArchive(r.AbsPath())
-					}
+						if cfg.TarRepos {
+							if useTmpDir {
+								os.MkdirAll(filepath.Dir(r.AbsPath()), 0755)
+								err = tar.Create(archive, tmpDest)
+								// no need to remove tmpDest here since tmpPath is removed after processing
+							} else {
+								err = tar.CreateInPlace(r.AbsPath())
+							}
+							if err != nil {
+								glog.Error("impossible to create tar archive ("+archive+"): ", err)
+								errBag.Record(err, callback)
+							}
+						}
+						return nil
+					}()
 
-					if err = r.Cleanup(); err != nil {
-						glog.Warning(err)
+					if err == nil {
+						// notify we're done with this repository
+						idChan <- r.id
 					}
-
-					// notify we're done with this repository
-					idChan <- r.id
 				}
 				wg.Done()
 			}()
@@ -179,6 +244,10 @@ func repoWorker(db *sql.DB, cfg *config.Config, startId uint64, errBag *errbag.E
 		glog.Infof("waiting for %v before re-starting the fetcher.\n", fetchInterval)
 		<-time.After(fetchInterval)
 	}
+}
+
+func bytesToGigaBytes(bytes int64) float64 {
+	return float64(bytes) / 1000000000.0
 }
 
 func isDirEmpty(path string) bool {

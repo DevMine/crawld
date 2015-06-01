@@ -32,6 +32,10 @@ func (gr gitRepo) AbsPath() string {
 	return gr.absPath
 }
 
+func (gr *gitRepo) SetAbsPath(path string) {
+	gr.absPath = path
+}
+
 // URL implements the URL() method of the Repo interface.
 func (gr gitRepo) URL() string {
 	return gr.url
