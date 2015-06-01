@@ -31,6 +31,16 @@ type Config struct {
 	// TarRepos tells whether repositories shall be stored as tar archives.
 	TarRepos bool `json:"tar_repositories"`
 
+	// TmpDir can be used to specify a temporary working directory. If
+	// left unspecified, the default system temporary directory will be used.
+	// If you have a ramdisk, you are advised to use it here.
+	TmpDir string `json:"tmp_dir"`
+
+	// TmpDirFileSizeLimit can be used to specify the maximum size in GB of an
+	// object to be temporarily placed in TmpDir for processing. Files of size
+	// larger than this value will not be processed in TmpDir.
+	TmpDirFileSizeLimit float64 `json:"tmp_dir_file_size_limit"`
+
 	// MaxFetcherWorkers defines the maximum number of workers for the
 	// repositories fetching task.
 	// It defaults to 1 but if your machine has good I/O throughput and a good
@@ -151,6 +161,10 @@ func ReadConfig(path string) (*Config, error) {
 	cfg := new(Config)
 	if err := json.Unmarshal(bs, cfg); err != nil {
 		return nil, err
+	}
+
+	if cfg.TmpDirFileSizeLimit < 0.1 {
+		cfg.TmpDirFileSizeLimit = 0.1
 	}
 
 	if cfg.MaxFetcherWorkers < 1 {
