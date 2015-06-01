@@ -26,6 +26,9 @@ type Repo interface {
 	// AbsPath gives the absolute path to the repository on disk.
 	AbsPath() string
 
+	// SetAbsPath can be used to change AbsPath, if necessary.
+	SetAbsPath(path string)
+
 	// URL gives the clone URL of the repository.
 	URL() string
 
