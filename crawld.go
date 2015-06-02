@@ -225,6 +225,7 @@ func repoWorker(db *sql.DB, cfg *config.Config, startID uint64, errBag *errbag.E
 							if err != nil {
 								glog.Error("impossible to create tar archive ("+archive+"): ", err)
 								errBag.Record(err, callback)
+								return err
 							}
 						}
 						return nil
