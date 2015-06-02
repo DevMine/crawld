@@ -184,13 +184,13 @@ func repoWorker(db *sql.DB, cfg *config.Config, startID uint64, errBag *errbag.E
 							path := r.AbsPath()
 							r.SetAbsPath(tmpDest)
 							if _, err := os.Stat(tmpDest); os.IsNotExist(err) || isDirEmpty(tmpDest) {
-								useTmpDir = false
 								// maybe we have it on main storage, not as a tar archive
 								if _, err := os.Stat(path); os.IsNotExist(err) || isDirEmpty(path) {
 									if err = clone(r); err != nil {
 										return err
 									}
 								} else {
+									useTmpDir = false
 									r.SetAbsPath(path)
 									if err = update(r); err != nil {
 										return err
