@@ -115,6 +115,13 @@ needs. The configuration file has several sections:
    restrict to. If left empty, all languages are considered.
  * **tar\_repositories**: a boolean value indicating whether the repositories
    shall be stored as tar archives or not.
+ * **tmp\_dir**: specify a temporary working directory. If left empty, the
+   default temporary directory will be used. This directory is used on clone and
+   update operations when the _tar\_repositories_ option is activated. It is
+   recommended to use a ramdisk for increased performance.
+ * **tmp\_dir\_file\_size\_limit**: specify the maximum size in GB of an object
+   to be temporarily placed in _tmp\_dir_ for processing. Files of size larger
+   than this value will not be processed in _tmp\_dir_.
  * **max\_fetcher\_workers**: specify the maximum number of workers to use for
    the fetching task. It defaults to 1 but if your machine has good I/O
    throughput and a good CPU, you probably want to increase this conservative
