@@ -30,6 +30,8 @@ import (
 	"github.com/DevMine/crawld/tar"
 )
 
+const version = "1.0.0"
+
 // extend this structure later if required but for now the repository id sufficient
 type dbRepo struct {
 	repo.Repo
@@ -339,11 +341,21 @@ func fatal(a ...interface{}) {
 	os.Exit(1)
 }
 
+// program flags
+var (
+	versionflag     = flag.Bool("version", false, "print version")
+	configPath      = flag.String("c", "", "configuration file")
+	disableCrawlers = flag.Bool("disable-crawlers", false, "disable the data crawlers")
+	disableFetcher  = flag.Bool("disable-fetcher", false, "disable the repositories fetcher")
+)
+
 func main() {
-	configPath := flag.String("c", "", "configuration file")
-	disableCrawlers := flag.Bool("disable-crawlers", false, "disable the data crawlers")
-	disableFetcher := flag.Bool("disable-fetcher", false, "disable the repositories fetcher")
 	flag.Parse()
+
+	if *versionflag {
+		fmt.Printf("%s - %s\n", filepath.Base(os.Args[0]), version)
+		os.Exit(0)
+	}
 
 	// Make sure we finish writing logs before exiting.
 	defer glog.Flush()
