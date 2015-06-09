@@ -1,5 +1,7 @@
 PKG  = github.com/DevMine/crawld
 EXEC = crawld
+VERSION = 1.0.0
+DIR = ${EXEC}-${VERSION}
 
 all: check test build
 
@@ -11,6 +13,16 @@ build:
 
 test:
 	go test -v -timeout 2m ${PKG}/...
+
+package: deps build
+	test -d ${DIR} || mkdir ${DIR}
+	cp ${EXEC} ${DIR}/
+	cp README.md ${DIR}/
+	cp crawld.conf.sample ${DIR}/
+	cp -r db ${DIR}/
+	tar czvf ${DIR}.tar.gz ${DIR}
+	rm -rf ${DIR}	
+
 
 # FIXME: we shall compile libgit2 statically with git2go to prevent libgit2
 # from being a dependency to run crawld
