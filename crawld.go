@@ -20,12 +20,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Rolinh/errbag"
 	"github.com/golang/glog"
 	_ "github.com/lib/pq"
 
 	"github.com/DevMine/crawld/config"
 	"github.com/DevMine/crawld/crawlers"
-	"github.com/DevMine/crawld/errbag"
 	"github.com/DevMine/crawld/repo"
 	"github.com/DevMine/crawld/tar"
 )

@@ -12,7 +12,7 @@ build:
 	go build -o ${EXEC} ${PKG}
 
 test:
-	go test -v -timeout 2m ${PKG}/...
+	go test -v ${PKG}/...
 
 package: deps build
 	test -d ${DIR} || mkdir ${DIR}
@@ -27,6 +27,7 @@ package: deps build
 # FIXME: we shall compile libgit2 statically with git2go to prevent libgit2
 # from being a dependency to run crawld
 deps:
+	go get -u github.com/Rolinh/errbag
 	go get -u github.com/libgit2/git2go
 	go get -u golang.org/x/oauth2
 	go get -u golang.org/x/net/context
