@@ -21,13 +21,13 @@ import (
 	"time"
 
 	"github.com/Rolinh/errbag"
+	"github.com/Rolinh/targo"
 	"github.com/golang/glog"
 	_ "github.com/lib/pq"
 
 	"github.com/DevMine/crawld/config"
 	"github.com/DevMine/crawld/crawlers"
 	"github.com/DevMine/crawld/repo"
-	"github.com/DevMine/crawld/tar"
 )
 
 const version = "1.0.0"
@@ -164,7 +164,7 @@ func repoWorker(db *sql.DB, cfg *config.Config, startID uint64, errBag *errbag.E
 						// if we have a tar archive, we need to extract it
 						if fi, err := os.Stat(archive); err == nil {
 							if useTmpDir && (bytesToGigaBytes(fi.Size()) < cfg.TmpDirFileSizeLimit) {
-								if err = tar.Extract(filepath.Dir(tmpDest), archive); err != nil {
+								if err = targo.Extract(filepath.Dir(tmpDest), archive); err != nil {
 									glog.Warning("impossible to extract tar archive (" + archive + ")" +
 										", cannot update repository: " + err.Error())
 									// attempt to remove the eventual mess
@@ -172,7 +172,7 @@ func repoWorker(db *sql.DB, cfg *config.Config, startID uint64, errBag *errbag.E
 									_ = os.RemoveAll(tmpDest)
 								}
 							} else {
-								if err = tar.ExtractInPlace(archive); err != nil {
+								if err = targo.ExtractInPlace(archive); err != nil {
 									glog.Warning("impossible to extract tar archive (" + archive + ")" +
 										", cannot update repository: " + err.Error())
 									// attempt to remove the eventual mess
@@ -219,10 +219,10 @@ func repoWorker(db *sql.DB, cfg *config.Config, startID uint64, errBag *errbag.E
 						if cfg.TarRepos {
 							if useTmpDir {
 								os.MkdirAll(filepath.Dir(r.AbsPath()), 0755)
-								err = tar.Create(archive, tmpDest)
+								err = targo.Create(archive, tmpDest)
 								// no need to remove tmpDest here since tmpPath is removed after processing
 							} else {
-								err = tar.CreateInPlace(r.AbsPath())
+								err = targo.CreateInPlace(r.AbsPath())
 							}
 							if err != nil {
 								glog.Error("impossible to create tar archive ("+archive+"): ", err)

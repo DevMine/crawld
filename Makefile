@@ -28,6 +28,7 @@ package: deps build
 # from being a dependency to run crawld
 deps:
 	go get -u github.com/Rolinh/errbag
+	go get -u github.com/Rolinh/targo
 	go get -u github.com/libgit2/git2go
 	go get -u golang.org/x/oauth2
 	go get -u golang.org/x/net/context
