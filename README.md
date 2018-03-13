@@ -30,25 +30,138 @@ The table below gives information about what is collected. Bear in mind that
 some information might be incomplete (for instance, if a user does not provide
 any company information).
 
-Repository       | GitHub Repository | User     | GitHub User         | GitHub Organization
------------------|-------------------|----------|---------------------|--------------------
-Name             | GitHub ID         | Username | GitHub ID           | GitHub ID
-Primary language | Full name         | Name     | Login               | Login
-Clone URL        | Description       | Email    | Bio                 | Avatar URL
-                 | Homepage          |          | Blog                | HTML URL
-                 | Fork              |          | Company             | Name
-                 | Default branch    |          | Email               | Company
-                 | Master branch     |          | Hireable            | Blog
-                 | HTML URL          |          | Location            | Location
-                 | Forks count       |          | Avatar URL          | Email
-                 | Open issues count |          | HTML URL            | Collaborators count
-                 | Stargazers count  |          | Followers count     | Creation date
-                 | Subscribers count |          | Following count     | Update date
-                 | Watchers count    |          | Collaborators count |
-                 | Size              |          | Creation date       |
-                 | Creation date     |          | Update date         |
-                 | Update date       |          |                     |
-                 | Last push date    |          |                     |
+<table>
+  <thead>
+    <tr>
+      <th>Repository</th>
+      <th>GitHub Repository</th>
+      <th>User</th>
+      <th>GitHub User</th>
+      <th>GitHub Organization</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Name</td>
+      <td>GitHub ID</td>
+      <td>Username</td>
+      <td>GitHub ID</td>
+      <td>GitHub ID</td>
+    </tr>
+    <tr>
+      <td>Primary language</td>
+      <td>Full name</td>
+      <td>Name</td>
+      <td>Login</td>
+      <td>Login</td>
+    </tr>
+    <tr>
+      <td>Clone URL</td>
+      <td>Description</td>
+      <td>Email</td>
+      <td>Bio</td>
+      <td>Avatar URL</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Homepage</td>
+      <td> </td>
+      <td>Blog</td>
+      <td>HTML URL</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Fork</td>
+      <td> </td>
+      <td>Company</td>
+      <td>Name</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Default branch</td>
+      <td> </td>
+      <td>Email</td>
+      <td>Company</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Master branch</td>
+      <td> </td>
+      <td>Hireable</td>
+      <td>Blog</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>HTML URL</td>
+      <td> </td>
+      <td>Location</td>
+      <td>Location</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Forks count</td>
+      <td> </td>
+      <td>Avatar URL</td>
+      <td>Email</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Open issues count</td>
+      <td> </td>
+      <td>HTML URL</td>
+      <td>Collaborators count</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Stargazers count</td>
+      <td> </td>
+      <td>Followers count</td>
+      <td>Creation date</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Subscribers count</td>
+      <td> </td>
+      <td>Following count</td>
+      <td>Update date</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Watchers count</td>
+      <td> </td>
+      <td>Collaborators count</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Size</td>
+      <td> </td>
+      <td>Creation date</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Creation date</td>
+      <td> </td>
+      <td>Update date</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Update date</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Last push date</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
 
 ## Fetcher
 
