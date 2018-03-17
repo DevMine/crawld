@@ -35,20 +35,20 @@ Repository       | GitHub Repository | User     | GitHub User         | GitHub O
 Name             | GitHub ID         | Username | GitHub ID           | GitHub ID
 Primary language | Full name         | Name     | Login               | Login
 Clone URL        | Description       | Email    | Bio                 | Avatar URL
-                 | Homepage          |          | Blog                | HTML URL
-                 | Fork              |          | Company             | Name
-                 | Default branch    |          | Email               | Company
-                 | Master branch     |          | Hireable            | Blog
-                 | HTML URL          |          | Location            | Location
-                 | Forks count       |          | Avatar URL          | Email
-                 | Open issues count |          | HTML URL            | Collaborators count
-                 | Stargazers count  |          | Followers count     | Creation date
-                 | Subscribers count |          | Following count     | Update date
-                 | Watchers count    |          | Collaborators count |
-                 | Size              |          | Creation date       |
-                 | Creation date     |          | Update date         |
-                 | Update date       |          |                     |
-                 | Last push date    |          |                     |
+&nbsp;           | Homepage          | &nbsp;   | Blog                | HTML URL
+&nbsp;           | Fork              | &nbsp;   | Company             | Name
+&nbsp;           | Default branch    | &nbsp;   | Email               | Company
+&nbsp;           | Master branch     | &nbsp;   | Hireable            | Blog
+&nbsp;           | HTML URL          | &nbsp;   | Location            | Location
+&nbsp;           | Forks count       | &nbsp;   | Avatar URL          | Email
+&nbsp;           | Open issues count | &nbsp;   | HTML URL            | Collaborators count
+&nbsp;           | Stargazers count  | &nbsp;   | Followers count     | Creation date
+&nbsp;           | Subscribers count | &nbsp;   | Following count     | Update date
+&nbsp;           | Watchers count    | &nbsp;   | Collaborators count | &nbsp;
+&nbsp;           | Size              | &nbsp;   | Creation date       | &nbsp;
+&nbsp;           | Creation date     | &nbsp;   | Update date         | &nbsp;
+&nbsp;           | Update date       | &nbsp;   | &nbsp;              | &nbsp;
+&nbsp;           | Last push date    | &nbsp;   | &nbsp;              | &nbsp;
 
 ## Fetcher
 
